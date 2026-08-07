@@ -1,0 +1,548 @@
+Okay. Now describe me how you as trained Replit agent model would search for the next batch of HNWI's contacts?
+I would not begin by searching for email addresses. I would begin by building a defensible batch of real people or entities, then investigate their public routes in stages.
+1. Define the batch
+First I would set a strict batch contract:
+* Jurisdictions and registries to use
+* Target entity types: individuals, companies, trusts, property vehicles, aircraft owners, etc.
+* Maximum number of admitted targets
+* Public-source requirement
+* Whether the goal is discovery, ownership research, contactability, or all three
+The admission cap would apply to the whole run, not separately to every source. That prevents one provider from flooding the batch with low-quality candidates.
+2. Discover candidates from authoritative sources
+I would start with real public records, such as:
+* Aircraft and aviation ownership records
+* SEC/EDGAR filings
+* Companies House or other corporate registries
+* Property and land-registry data
+* Public foundation and nonprofit filings
+* Confirmed investigative datasets
+* Public ownership and corporate relationship records
+At this stage, a record is only a candidate. It is not yet accepted as an HNWI.
+I would reject or quarantine:
+* Placeholder names
+* Role-shaped names such as “Deputy” or “Family Office”
+* Editorial or recipe text accidentally extracted as names
+* Famous people used only because they are famous
+* Same-name matches without identity evidence
+* Businesses incorrectly treated as people
+3. Build an identity bundle
+For every admitted candidate, I would collect:
+* Legal and trading names
+* Registry identifiers
+* Country and jurisdiction
+* Known companies
+* Public biographies or roles
+* Relevant aliases
+* Source URLs
+* Evidence explaining why this record refers to this person or entity
+The system should not rely on name matching alone. A name becomes useful only when combined with identifiers, geography, corporate relationships, filings, or other corroborating evidence.
+4. Separate wealth from identity and access
+I would score these independently:
+1. Identity — Is this the correct person or entity?
+2. Wealth or asset evidence — What public evidence supports financial significance?
+3. Ownership/control — Does the person own, control, direct, or merely operate something?
+4. Contactability — Is there a public route?
+5. Access/reachability — Is there a realistic path to the person?
+For example, owning an aircraft may support an asset signal, but it does not prove that a person owns a company. Being listed as a director does not automatically prove beneficial ownership. A public company email does not prove personal access.
+5. Run anchored web research
+Only after the candidate has a useful identity bundle would I send bounded research queries.
+Each query would use safe anchors such as:
+* Legal name
+* Trading name
+* City and country
+* Registry identifiers
+* Known company names
+* Candidate official domains
+I would not forward raw private residence text as a search anchor.
+The research lanes would be distinct:
+* Official records and filings
+* People, biographies, and press
+* Company ownership and parent groups
+* Official contact routes
+* Operator and management-company pages
+* Public asset and registry evidence
+Provider output would be treated as leads. It would not be accepted as truth merely because an AI model or search provider returned it.
+6. Follow the relationship chain
+For a company or property vehicle, I would investigate in this order:
+1. Identify the exact business or legal entity.
+2. Find directors, officers, operators, owners, and parent companies.
+3. Follow the operator or management company.
+4. Inspect official team, contact, board, and investment pages.
+5. Identify named executives or principals.
+6. Search for increasingly direct public routes.
+7. Preserve the indirect routes even when a more direct route is found.
+For example:
+Property vehicle
+→ registered company
+→ operator or parent company
+→ named executive
+→ official executive phone/email
+→ manual review route
+
+The C/O company, operator, and parent company are research leads. They are not automatically proof of ownership.
+7. Validate every contact candidate
+For each email, phone number, or social profile, I would ask:
+* Was the value observed on an exact public page?
+* Does that page clearly identify the person?
+* Is the value located within the person’s page section rather than somewhere else on the page?
+* Does the domain belong to the relevant organization?
+* Is there independent corroboration?
+* Is there a conflict with another candidate?
+* Is this a generic shared mailbox?
+* Is this actually a registry or office contact?
+Important rules:
+* Never construct an email address from a guessed pattern.
+* Never promote a generic info@, contact@, or office mailbox to a person.
+* Never treat a social username as proof of identity.
+* Never treat a phone number near a company name as a personal phone.
+* Never use a provider label as corroboration; corroboration requires independent source domains or claim-level evidence.
+* Preserve rejected candidates and the reason for rejection.
+8. Rank routes instead of flattening them
+The output should be a route hierarchy, for example:
+1. Validated direct personal route
+2. Named executive or principal route
+3. Operator or parent-company route
+4. Intermediary or management-company route
+5. Organization route
+6. Registry or filing route
+A named executive route can be extremely useful without being promoted as the target’s personal contact. It remains a manual-review route with its source page and relationship explanation.
+9. Use conservative promotion rules
+Only evidence that passes identity, attribution, and source checks could populate a direct contact field.
+Possible outcomes would be:
+* verified_direct_route
+* attribution_review
+* organization_contact
+* evidence_only
+* rejected
+* no_usable_public_route
+For many HNWI candidates, the correct result will be “evidence found, no verified personal contact.” That is better than creating a misleading contact.
+10. Run enrichment in bounded batches
+I would use:
+* Small discovery batches
+* One target at a time for expensive enrichment
+* Per-target timeouts
+* Provider-specific rate limits
+* Retry queues only for failed or incomplete targets
+* No automatic reprocessing of the entire batch after one provider failure
+* Separate progress for discovery, enrichment, and research review
+The batch dashboard should show:
+* Candidates discovered
+* Candidates admitted
+* Candidates rejected
+* Identity-confirmed targets
+* Wealth/ownership evidence
+* Public contact candidates
+* Verified direct routes
+* Organization-only routes
+* Manual-review routes
+* Provider failures and source gaps
+What I would explicitly avoid
+I would not:
+* Scrape private accounts or bypass authentication
+* Use leaked, purchased, or non-public personal data
+* Guess emails or phone numbers
+* Treat wealth estimates as identity proof
+* Turn every company officer into an HNWI
+* Treat fame, social presence, or an expensive asset as contactability
+* Generate automatic outreach
+* Promote organization routes as personal access
+* Let an LLM silently admit candidates or contacts
+The core principle is:
+Discover broadly, verify narrowly, preserve indirect routes, and promote almost nothing unless the evidence clearly supports the exact person and the exact contact route.
+And write prompts for web search you would use
+Below are the web-search prompts I would use. I would separate search queries from research/extraction prompts. Search queries find candidate pages; extraction prompts interpret only the pages and citations returned.
+1. Shared target fingerprint
+Before searching, create a compact target object:
+Legal name: {{legal_name}}
+Trading name: {{trading_name}}
+Entity type: {{entity_type}}
+Country: {{country}}
+City: {{city}}
+Registry: {{registry}}
+Registry identifier: {{registry_id}}
+Known companies: {{known_companies}}
+Candidate domains: {{candidate_domains}}
+Known asset or ownership context: {{asset_context}}
+
+Do not include raw private residence details. Use only compact public identifiers needed for disambiguation.
+
+Search-query prompts
+2. Exact identity and official records
+Find authoritative public sources that identify the exact person or legal entity:
+
+Target: "{{legal_name}}"
+Trading or alternate name: "{{trading_name}}"
+Country: "{{country}}"
+City: "{{city}}"
+Registry identifier: "{{registry_id}}"
+
+Search official registries, government filings, regulated disclosures, company websites, and reputable public records. Exclude same-name people unless the page also matches the target’s geography, organization, registry identifier, role, or asset context.
+
+Return:
+- exact target match
+- source title
+- source URL
+- source domain
+- matching identifiers
+- conflicting identity signals
+- confidence: high, medium, or low
+
+Do not infer ownership, wealth, or contact details from name similarity alone.
+
+Example query variants:
+"{{legal_name}}" "{{registry_id}}"
+"{{legal_name}}" "{{city}}" "{{country}}"
+"{{legal_name}}" director OR officer OR owner
+site:{{official_domain}} "{{legal_name}}"
+site:{{registry_domain}} "{{registry_id}}"
+
+3. Ownership and control
+Investigate public evidence of ownership, control, directorship, beneficial interest, or management for:
+
+Target: "{{target_name}}"
+Entity: "{{entity_name}}"
+Jurisdiction: "{{jurisdiction}}"
+Registry identifier: "{{registry_id}}"
+
+Prioritize official company filings, government registries, securities filings, court records, regulated disclosures, and the organization’s own official pages.
+
+For every claim, return:
+- claim type: owner, beneficial owner, director, officer, operator, founder, parent company, or unknown
+- exact person or organization named
+- target entity
+- source URL
+- exact supporting passage or page section
+- whether the claim is direct, indirect, historical, or inferred
+- uncertainty or contradiction
+
+Do not convert a director, operator, C/O company, or management company into an ownership claim unless the source explicitly supports ownership.
+
+Query variants:
+"{{entity_name}}" owner
+"{{entity_name}}" "beneficial owner"
+"{{entity_name}}" director
+"{{entity_name}}" operator
+"{{entity_name}}" parent company
+"{{entity_name}}" "{{known_operator}}"
+site:{{official_domain}} ownership OR team OR board OR management
+
+4. Operator and parent-company discovery
+Find the official operator, manager, parent company, holding company, or management organization connected to:
+
+Target entity: "{{target_entity}}"
+C/O or related organization: "{{related_organization}}"
+Country: "{{country}}"
+
+Search official websites, company filings, registries, investor pages, team pages, board pages, and contact pages.
+
+For each related organization, return:
+- exact legal or trading name
+- relationship to the target
+- source URL
+- exact evidence for the relationship
+- official domains
+- named people associated with the organization
+- whether the relationship is ownership, operation, management, administration, or merely a correspondence address
+
+Treat C/O names and operator names as research leads, not ownership proof.
+
+Query variants:
+"{{target_entity}}" "c/o" "{{related_organization}}"
+"{{target_entity}}" managed by
+"{{target_entity}}" operated by
+"{{target_entity}}" "parent company"
+"{{related_organization}}" team
+"{{related_organization}}" board
+"{{related_organization}}" executives
+
+5. Executive and principal discovery
+Find named executives, directors, principals, founders, investment committee members, board members, or operators connected to:
+
+Organization: "{{organization_name}}"
+Official domains: "{{candidate_domains}}"
+Country: "{{country}}"
+
+Prioritize official:
+- team pages
+- board pages
+- management pages
+- investment committee pages
+- leadership pages
+- annual reports
+- regulatory filings
+- company announcements
+
+Return only people whose names and roles are explicitly shown. For each person:
+- full displayed name
+- displayed role
+- organization
+- exact page URL
+- page section or heading
+- whether the page identifies them as current or former
+- related public contact routes on the same official page
+- attribution confidence
+
+Do not infer a person from a URL slug, image filename, email pattern, or unrelated search snippet.
+
+Query variants:
+site:{{official_domain}} team
+site:{{official_domain}} leadership
+site:{{official_domain}} board
+site:{{official_domain}} management
+site:{{official_domain}} "investment committee"
+site:{{official_domain}} "{{organization_name}}"
+"{{organization_name}}" executives
+"{{organization_name}}" directors
+
+6. Official contact-route discovery
+Find public contact routes on the official website of:
+
+Organization: "{{organization_name}}"
+Official domain: "{{official_domain}}"
+Person of interest: "{{person_name}}"
+Role: "{{role}}"
+
+Search only public official pages, especially:
+- the person’s profile
+- team pages
+- board pages
+- contact pages
+- press or media pages
+- investor-relations pages
+- official PDF reports
+
+For every phone number, email address, or social URL, return:
+- value
+- vector type
+- exact source URL
+- page section where it appears
+- nearest named person or organization
+- whether it is personal, role-based, or organization-wide
+- exact claim observed: true or false
+- attribution status: verified, review-only, or rejected
+
+Do not construct an email from the person’s name. Do not attribute a shared mailbox to a person.
+
+Important mailbox examples that should remain organization-scoped:
+info@
+contact@
+hello@
+office@
+admin@
+general@
+support@
+sales@
+press@
+media@
+investor.relations@
+
+7. Individual executive contact query
+This should be narrower and only run after the executive was found on an authoritative page:
+Verify whether this exact public executive has a contact route:
+
+Person: "{{person_name}}"
+Role: "{{role}}"
+Organization: "{{organization_name}}"
+Official domain: "{{official_domain}}"
+Country: "{{country}}"
+
+Search official organization pages and exact public documents. A contact value may be attributed to this person only when:
+1. the person’s name is explicitly present;
+2. the contact value is in the same person-bounded section or clearly labeled for them;
+3. the page is an official source or authoritative public document.
+
+Return no contact value if any condition is missing. Preserve organization and operator routes separately.
+
+Query variants:
+site:{{official_domain}} "{{person_name}}" email
+site:{{official_domain}} "{{person_name}}" phone
+site:{{official_domain}} "{{person_name}}" contact
+"{{person_name}}" "{{organization_name}}" email
+"{{person_name}}" "{{organization_name}}" phone
+
+8. Public biography and role corroboration
+Find independent public sources that corroborate the identity and current role of:
+
+Person: "{{person_name}}"
+Organization: "{{organization_name}}"
+Role: "{{role}}"
+Country: "{{country}}"
+
+Prioritize official biographies, company announcements, filings, conference speaker pages, regulated disclosures, and reputable publications.
+
+For each source, return:
+- canonical source domain
+- URL
+- person name as displayed
+- organization and role
+- publication or update date
+- exact corroborating claim
+- whether it is independent of the other sources
+- contradictions or identity ambiguity
+
+Repeated copies of the same press release do not count as independent corroboration.
+
+9. Asset and wealth-evidence search
+Find public evidence relevant to the financial significance or asset ownership of:
+
+Candidate: "{{person_or_entity}}"
+Asset or company: "{{asset_context}}"
+Country: "{{country}}"
+Known identifiers: "{{identifiers}}"
+
+Use official registries, regulatory filings, court records, company filings, public transaction records, and reputable investigative reporting.
+
+Separate:
+- confirmed ownership
+- control or directorship
+- operator or manager relationship
+- asset association
+- estimated value
+- source-reported wealth
+- unsupported speculation
+
+Return exact evidence and URLs. Do not calculate personal wealth from an asset unless the source explicitly supports personal ownership and the valuation basis is clear.
+
+10. Negative-search prompt
+Negative findings are useful when properly bounded:
+Search for public evidence that would contradict or weaken this target match:
+
+Target: "{{target_name}}"
+Known organization: "{{organization_name}}"
+Country: "{{country}}"
+Registry identifier: "{{registry_id}}"
+
+Look for:
+- different people with the same name
+- dissolved or inactive entities
+- conflicting jurisdictions
+- former roles presented as current
+- unrelated companies using the same trading name
+- contradictory ownership or directorship claims
+- contact values attributed to another person
+
+Return:
+- contradiction
+- source URL
+- exact conflicting claim
+- severity: minor, material, or disqualifying
+- whether the target should remain admitted, go to manual review, or be rejected
+
+Do not reject a target solely because no public contact information was found.
+
+
+LLM extraction prompt for fetched pages
+After fetching a page, I would use a strict extraction prompt like this:
+You are extracting public evidence from one fetched web page.
+
+TARGET
+- Legal name: {{legal_name}}
+- Trading name: {{trading_name}}
+- Organization: {{organization_name}}
+- Candidate person: {{person_name}}
+- Candidate role: {{role}}
+- Country: {{country}}
+- Known identifiers: {{identifiers}}
+
+PAGE
+- URL: {{source_url}}
+- Title: {{page_title}}
+- Canonical domain: {{canonical_domain}}
+- Fetched text: {{bounded_page_text}}
+
+Rules:
+1. Use only claims explicitly present in the fetched page.
+2. Do not rely on world knowledge or assumptions.
+3. Do not infer a person from an email address, image filename, URL slug, or nearby unrelated text.
+4. Do not construct or complete contact values.
+5. Generic shared mailboxes are organization-level routes.
+6. A phone or email is person-attributed only when the page clearly associates it with the named person.
+7. Preserve uncertainty and contradictions.
+8. A source URL is not proof unless the relevant claim appears on that page.
+9. A search-result snippet is a lead, not exact claim evidence.
+10. If the page is inaccessible, ambiguous, or unrelated, return no extracted contact.
+
+Return strict JSON:
+
+{
+"page_relevance": "official_target|official_operator|registry|reputable_reporting|unrelated|unclear",
+"identity_match": {
+"status": "confirmed|plausible|ambiguous|contradicted|not_found",
+"evidence": [],
+"uncertainty": []
+},
+"relationships": [
+{
+"subject": "",
+"relationship": "owner|beneficial_owner|director|executive|operator|parent|manager|intermediary|unknown",
+"object": "",
+"exact_claim": "",
+"confidence": 0
+}
+],
+"people": [
+{
+"name": "",
+"role": "",
+"organization": "",
+"current_status": "current|former|unclear",
+"exact_claim": "",
+"source_section": ""
+}
+],
+"contacts": [
+{
+"type": "email|phone|linkedin|other",
+"value": "",
+"scope": "target_person|person_candidate|organization|operator|unknown",
+"person_name": null,
+"exact_claim_observed": false,
+"source_section": "",
+"confidence": 0,
+"rejection_reason": null
+}
+],
+"negative_findings": [],
+"manual_review_required": true
+}
+
+Claim-verification prompt
+For a candidate contact found in search results:
+A search provider returned this candidate contact:
+
+Candidate:
+- Type: {{vector_type}}
+- Value: {{candidate_value}}
+- Claimed person: {{person_name}}
+- Claimed organization: {{organization_name}}
+- Discovery URL: {{discovery_url}}
+
+Verify it by inspecting only the fetched public page at:
+{{fetched_url}}
+
+Return:
+- exact_value_observed: true or false
+- person_name_observed: true or false
+- organization_observed: true or false
+- same_section_association: true or false
+- scope: target_person, person_candidate, organization, operator, or unknown
+- exact_quote_or_page_section
+- decision: retain_review_only, promote_attribution_review, promote_verified_direct_route, or reject
+- rejection_reason
+
+If the value appears only in a generic footer, navigation block, privacy policy, unrelated person’s section, or organization-wide contact block, do not attribute it to the person.
+
+
+Recommended provider orchestration
+For each target, I would use separate lanes:
+Lane A — Identity and official records
+Lane B — Ownership and control
+Lane C — People, executives, and operators
+Lane D — Official contact routes
+Lane E — Independent corroboration
+Lane F — Contradiction and negative search
+
+Each provider should receive the same compact target fingerprint but a different query lane. Then the application should normalize all results into:
+candidate → source-linked → attribution review → independently corroborated → verified route
+
+The final system should never treat “the provider returned an email” as equivalent to “the person has a verified public email.”

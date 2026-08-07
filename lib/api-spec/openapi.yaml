@@ -1,0 +1,1767 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: ApexFinder Pro - Enterprise OSINT & HNWI Intelligence Platform
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: entities
+    description: Entity (HNWI / Corporation / Trust / Gatekeeper) management
+  - name: assets
+    description: Asset (Real Estate / Aviation / Marine / Club) management
+  - name: relationships
+    description: Graph relationship edges
+  - name: research
+    description: MCTS research sessions and CRM
+  - name: dashboard
+    description: Dashboard aggregates, hot leads, and map data
+  - name: graph
+    description: Graph analysis and path finding
+  - name: improve
+    description: Persona improvement loop — autonomous background analysis and enrichment suggestions
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # ── ENTITIES ──────────────────────────────────────────────────────────────
+  /entities:
+    get:
+      operationId: listEntities
+      tags: [entities]
+      summary: List all entities with optional filters
+      parameters:
+        - name: type
+          in: query
+          schema: { type: string }
+          description: Filter by entity type (HNWI, Corporation, Trust, Gatekeeper)
+        - name: minScore
+          in: query
+          schema: { type: number }
+          description: Minimum Bayesian investor score
+        - name: search
+          in: query
+          schema: { type: string }
+          description: Full-text search on name
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+        - name: starred
+          in: query
+          schema: { type: boolean }
+          description: Show only starred entities
+        - name: hidden
+          in: query
+          schema: { type: boolean }
+          description: Show only hidden entities
+        - name: contactable
+          in: query
+          schema: { type: boolean }
+          description: Show only entities with a verified personal contact route
+        - name: contactOutcome
+          in: query
+          schema: { type: string }
+          description: Filter by contact evidence state (any, direct, verified, candidate, direct_contact_candidate, org, social)
+        - name: minContactConfidence
+          in: query
+          schema: { type: integer, minimum: 0, maximum: 100 }
+          description: Minimum contact confidence score
+        - name: hasEmail
+          in: query
+          schema: { type: boolean }
+          description: Show only entities with an email address
+        - name: hasPhone
+          in: query
+          schema: { type: boolean }
+          description: Show only entities with a phone number
+        - name: hasWhatsapp
+          in: query
+          schema: { type: boolean }
+          description: Show only entities with a WhatsApp contact vector
+        - name: hasTelegram
+          in: query
+          schema: { type: boolean }
+          description: Show only entities with a Telegram handle
+        - name: hasInstagram
+          in: query
+          schema: { type: boolean }
+          description: Show only entities with an Instagram handle
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Entity"
+    post:
+      operationId: createEntity
+      tags: [entities]
+      summary: Create a new entity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EntityInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entity"
+
+  /entities/{id}:
+    get:
+      operationId: getEntity
+      tags: [entities]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entity"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateEntity
+      tags: [entities]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EntityUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entity"
+    delete:
+      operationId: deleteEntity
+      tags: [entities]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # ── ASSETS ────────────────────────────────────────────────────────────────
+  /assets:
+    get:
+      operationId: listAssets
+      tags: [assets]
+      summary: List all assets
+      parameters:
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: entityId
+          in: query
+          schema: { type: integer }
+        - name: jurisdiction
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Asset"
+    post:
+      operationId: createAsset
+      tags: [assets]
+      summary: Create a new asset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+
+  /assets/{id}:
+    get:
+      operationId: getAsset
+      tags: [assets]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateAsset
+      tags: [assets]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+    delete:
+      operationId: deleteAsset
+      tags: [assets]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # ── RELATIONSHIPS ─────────────────────────────────────────────────────────
+  /relationships:
+    get:
+      operationId: listRelationships
+      tags: [relationships]
+      summary: List relationship edges
+      parameters:
+        - name: entityId
+          in: query
+          schema: { type: integer }
+          description: Filter by source entity ID
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Relationship"
+    post:
+      operationId: createRelationship
+      tags: [relationships]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RelationshipInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Relationship"
+
+  /relationships/{id}:
+    delete:
+      operationId: deleteRelationship
+      tags: [relationships]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # ── RESEARCH / MCTS ───────────────────────────────────────────────────────
+  /research/run:
+    post:
+      operationId: runResearch
+      tags: [research]
+      summary: Run MCTS autonomous research on an entity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResearchRunInput"
+      responses:
+        "201":
+          description: Research session created with MCTS path
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchSession"
+
+  /research/sessions:
+    get:
+      operationId: listResearchSessions
+      tags: [research]
+      parameters:
+        - name: entityId
+          in: query
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResearchSession"
+
+  /research/sessions/{id}:
+    get:
+      operationId: getResearchSession
+      tags: [research]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchSession"
+        "404":
+          description: Not found
+
+  /research/sessions/{id}/evidence:
+    get:
+      operationId: listResearchEvidence
+      tags: [research]
+      summary: List claim-level evidence recorded for a research session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Claim-level evidence ledger
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResearchEvidence"
+        "404":
+          description: Research session not found
+
+  /research/sessions/{id}/audit:
+    get:
+      operationId: listResearchRunAudit
+      tags: [research]
+      summary: List durable research pipeline audit events
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Research pipeline audit events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResearchRunEvent"
+        "404":
+          description: Research session not found
+
+  /research/cases:
+    post:
+      operationId: openResearchCase
+      tags: [research]
+      summary: Open or resume the target-scoped bureau case
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResearchCaseInput"
+      responses:
+        "200":
+          description: Existing case resumed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchCase"
+        "201":
+          description: New case opened
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchCase"
+        "404":
+          description: Entity not found
+
+  /research/bureau/cases:
+    post:
+      operationId: openBureauDiscoveryCase
+      tags: [research]
+      summary: Open a discovery-first investigation and write the Boss opening brief
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BureauDiscoveryInput"
+      responses:
+        "201":
+          description: Discovery case opened
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BureauCase"
+
+  /research/bureau/cases/latest:
+    get:
+      operationId: getLatestBureauDiscoveryCase
+      tags: [research]
+      summary: Get the latest discovery-first bureau case
+      responses:
+        "200":
+          description: Latest discovery case
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BureauCase"
+        "404":
+          description: No discovery case exists
+
+  /research/bureau/cases/{caseId}:
+    get:
+      operationId: getBureauCase
+      tags: [research]
+      summary: Get a discovery or target bureau case
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Bureau case
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BureauCase"
+        "404":
+          description: Case not found
+
+  /research/bureau/cases/{caseId}/run-discovery:
+    post:
+      operationId: runBureauCaseDiscovery
+      tags: [research]
+      summary: Run the initial bounded discovery pass for a bureau case
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "202":
+          description: Discovery pass started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BureauCaseContinuationResponse"
+        "400":
+          description: Invalid case ID
+        "404":
+          description: Case not found
+        "409":
+          description: Case is not eligible or another investigation is running
+
+  /research/bureau/cases/{caseId}/initial-research:
+    post:
+      operationId: recordBureauInitialResearch
+      tags: [research]
+      summary: Store the broad web response and Boss commentary in the case context
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BureauInitialResearchInput"
+      responses:
+        "200":
+          description: Initial research recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BureauCase"
+        "404":
+          description: Case not found
+
+  /research/bureau/cases/{caseId}/promote-target:
+    post:
+      operationId: promoteBureauCaseTarget
+      tags: [research]
+      summary: Attach an existing validated entity to a discovery case
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BureauPromoteTargetInput"
+      responses:
+        "200":
+          description: Discovery case promoted to a target case
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BureauCase"
+        "404":
+          description: Case or entity not found
+
+  /research/bureau/cases/{caseId}/admit-candidate:
+    post:
+      operationId: admitBureauCaseCandidate
+      tags: [research]
+      summary: Create a review-only entity from one persisted discovery candidate
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BureauAdmitCandidateInput"
+      responses:
+        "200":
+          description: Candidate admitted as a review-only entity; target promotion remains separate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BureauCase"
+        "400":
+          description: Invalid request
+        "404":
+          description: Case not found
+        "409":
+          description: Candidate is not available or has already been admitted
+
+  /research/bureau/cases/{caseId}/run-next-pass:
+    post:
+      operationId: runBureauCaseNextPass
+      tags: [research]
+      summary: Run the next bounded verification pass over the shared case context
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "202":
+          description: Verification pass started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BureauCaseContinuationResponse"
+        "400":
+          description: Invalid case ID
+        "404":
+          description: Case not found
+        "409":
+          description: Case is not eligible or another investigation is running
+
+  /research/bureau/cases/{caseId}/run-boss-review:
+    post:
+      operationId: runBureauCaseBossReview
+      tags: [research]
+      summary: Retry the Boss closure review without repeating evidence lanes
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "202":
+          description: Boss closure review started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BureauCaseContinuationResponse"
+        "400":
+          description: Invalid case ID
+        "404":
+          description: Case not found
+        "409":
+          description: Case is not eligible or another investigation is running
+
+  /research/cases/{entityId}:
+    get:
+      operationId: getResearchCase
+      tags: [research]
+      summary: Get the living case file for a target
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Target-scoped case file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchCase"
+        "404":
+          description: Case not found
+
+  /research/cases/{entityId}/advance:
+    post:
+      operationId: advanceResearchCase
+      tags: [research]
+      summary: Let the Head Investigator select the next bounded action
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Case advanced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchCase"
+        "404":
+          description: Case not found
+
+  /research/cases/{entityId}/directive:
+    post:
+      operationId: addResearchCaseDirective
+      tags: [research]
+      summary: Add a human operator directive to the living case
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResearchCaseDirectiveInput"
+      responses:
+        "200":
+          description: Directive recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchCase"
+        "404":
+          description: Case not found
+
+  /research/cases/{entityId}/events:
+    get:
+      operationId: listResearchCaseEvents
+      tags: [research]
+      summary: List the case decision and investigation history
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 100 }
+      responses:
+        "200":
+          description: Case events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResearchCaseEvent"
+        "404":
+          description: Case not found
+
+  /research/sessions/{id}/status:
+    patch:
+      operationId: updateResearchStatus
+      tags: [research]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionStatusUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchSession"
+
+  /research/sessions/{id}/pitch:
+    post:
+      operationId: generatePitch
+      tags: [research]
+      summary: Generate an AI-personalized outreach pitch for the winning MCTS path
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchSession"
+        "404":
+          description: Not found
+
+  /research/sessions/{id}/safety:
+    patch:
+      operationId: updateResearchSafety
+      tags: [research]
+      summary: Set manual-review safety state for a research draft
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [manual_review, approved_for_manual_outreach, blocked]
+                reviewerNote: { type: string }
+      responses:
+        "200":
+          description: Safety state updated; no message is sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchSession"
+        "422":
+          description: Evidence or review note is insufficient
+
+  # ── DASHBOARD ─────────────────────────────────────────────────────────────
+  /dashboard/hot-leads:
+    get:
+      operationId: getHotLeads
+      tags: [dashboard]
+      summary: Real-time hot leads feed ranked by Bayesian score and recent activity
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HotLead"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Overall platform statistics and breakdowns
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/map-data:
+    get:
+      operationId: getMapData
+      tags: [dashboard]
+      summary: All geolocated assets for the Leaflet map view
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MapAsset"
+
+  # ── GRAPH ─────────────────────────────────────────────────────────────────
+  /graph/entity/{id}:
+    get:
+      operationId: getEntityGraph
+      tags: [graph]
+      summary: Get entity graph with all connected nodes and edges
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: depth
+          in: query
+          schema: { type: integer, default: 2 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntityGraph"
+        "404":
+          description: Not found
+
+  /graph/path:
+    get:
+      operationId: getConnectionPath
+      tags: [graph]
+      summary: Find shortest warm-introduction path between two entities
+      parameters:
+        - name: sourceId
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: targetId
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionPath"
+
+  # ── IMPROVE ───────────────────────────────────────────────────────────────
+
+  /improve/run:
+    post:
+      operationId: runImprovementLoop
+      tags: [improve]
+      summary: Trigger persona improvement loop for all entities (or a filtered subset)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                limit: { type: integer, default: 50 }
+                entityIds:
+                  type: array
+                  items: { type: integer }
+      responses:
+        "202":
+          description: Job started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImprovementJobStarted"
+        "409":
+          description: Job already running
+
+  /improve/run/{entityId}:
+    post:
+      operationId: runImprovementLoopForEntity
+      tags: [improve]
+      summary: Run persona loop for a single entity (synchronous)
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "201":
+          description: Suggestions generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntityImprovementResult"
+        "404":
+          description: Entity not found
+
+  /improve/jobs/{jobId}:
+    get:
+      operationId: getImprovementJob
+      tags: [improve]
+      summary: Poll improvement loop job status
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImprovementJobState"
+
+  /improve/logs:
+    get:
+      operationId: listImprovementLogs
+      tags: [improve]
+      summary: List improvement logs with optional filters
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 100 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+        - name: persona
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: priority
+          in: query
+          schema: { type: string }
+        - name: entityId
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [logs, total, limit, offset]
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ImprovementLog"
+                  total: { type: integer }
+                  limit: { type: integer }
+                  offset: { type: integer }
+
+  /improve/logs/{entityId}:
+    get:
+      operationId: listEntityImprovementLogs
+      tags: [improve]
+      summary: List improvement logs for a specific entity
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ImprovementLog"
+
+  /improve/logs/{logId}:
+    patch:
+      operationId: updateImprovementLog
+      tags: [improve]
+      summary: Update improvement log status (applied / dismissed / pending)
+      parameters:
+        - name: logId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImprovementLog"
+
+  /improve/stats:
+    get:
+      operationId: getImprovementStats
+      tags: [improve]
+      summary: Summary counts by persona, priority, and status
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImprovementStats"
+
+  # ── EXTENDED SOURCES (Phase 8) ─────────────────────────────────────────────
+  /ingest/occrp:
+    post:
+      operationId: runOccrpEnrichment
+      tags: [ingest]
+      summary: Enrich existing entities via OCCRP Aleph investigative database
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                limit: { type: integer, default: 500, description: "Max entities to enrich" }
+      responses:
+        "202":
+          description: Job started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestJobStarted"
+        "409":
+          description: Job already running
+
+  /ingest/land-registry:
+    post:
+      operationId: runLandRegistryIngestion
+      tags: [ingest]
+      summary: Ingest UK HM Land Registry OCOD (overseas companies owning UK property)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                maxRecords: { type: integer, default: 50000 }
+                forceRefresh: { type: boolean, default: false }
+                downloadUrl: { type: string, description: "Override HMLR CSV download URL" }
+      responses:
+        "202":
+          description: Job started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestJobStarted"
+        "409":
+          description: Job already running
+
+  /ingest/opensky:
+    post:
+      operationId: runOpenSkyEnrichment
+      tags: [ingest]
+      summary: Enrich aviation assets with live flight positions from OpenSky Network
+      responses:
+        "202":
+          description: Job started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestJobStarted"
+        "409":
+          description: Job already running
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+
+    IngestJobStarted:
+      type: object
+      required: [jobId, message, pollUrl]
+      properties:
+        jobId: { type: string }
+        message: { type: string }
+        pollUrl: { type: string }
+        note: { type: string }
+
+    # ── ENTITY ───────────────────────────────────────────────────────────────
+    Entity:
+      type: object
+      required: [id, name, type, bayesianScore, accessScore, isHot, assetCount, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        type: { type: string }
+        bayesianScore: { type: number, description: "HNWI / wealth signal score; not a reachability score" }
+        accessScore: { type: number, description: "Contactability-first score from public contact evidence and directness (0-1)" }
+        nationality: { type: ["string", "null"] }
+        estimatedNetWorth: { type: ["number", "null"] }
+        knownResidences: { type: ["string", "null"] }
+        linkedinUrl: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        contactMethod: { type: ["string", "null"] }
+        instagramHandle: { type: ["string", "null"] }
+        telegramHandle: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        sourceRegistries: { type: ["string", "null"] }
+        metadata: { type: ["string", "null"] }
+        isHot: { type: boolean }
+        assetCount: { type: integer }
+        createdAt: { type: string }
+
+    EntityInput:
+      type: object
+      required: [name, type]
+      properties:
+        name: { type: string, minLength: 1 }
+        type: { type: string }
+        nationality: { type: string }
+        estimatedNetWorth: { type: number }
+        knownResidences: { type: string }
+        linkedinUrl: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        contactMethod: { type: string }
+        notes: { type: string }
+        sourceRegistries: { type: string }
+        metadata: { type: string }
+
+    EntityUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        type: { type: string }
+        bayesianScore: { type: number }
+        nationality: { type: string }
+        estimatedNetWorth: { type: number }
+        knownResidences: { type: string }
+        linkedinUrl: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        contactMethod: { type: string }
+        notes: { type: string }
+        sourceRegistries: { type: string }
+        metadata: { type: string }
+        isHot: { type: boolean }
+
+    # ── ASSET ────────────────────────────────────────────────────────────────
+    Asset:
+      type: object
+      required: [id, category, identifier, jurisdiction, createdAt]
+      properties:
+        id: { type: integer }
+        category: { type: string }
+        identifier: { type: string }
+        jurisdiction: { type: string }
+        latitude: { type: ["number", "null"] }
+        longitude: { type: ["number", "null"] }
+        estimatedValue: { type: ["number", "null"] }
+        address: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        lastActivityDate: { type: ["string", "null"] }
+        sourceRegistry: { type: ["string", "null"] }
+        ownerEntityId: { type: ["integer", "null"] }
+        ownerName: { type: ["string", "null"] }
+        createdAt: { type: string }
+
+    AssetInput:
+      type: object
+      required: [category, identifier, jurisdiction]
+      properties:
+        category: { type: string }
+        identifier: { type: string }
+        jurisdiction: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        estimatedValue: { type: number }
+        address: { type: string }
+        description: { type: string }
+        lastActivityDate: { type: string }
+        sourceRegistry: { type: string }
+        ownerEntityId: { type: integer }
+
+    AssetUpdate:
+      type: object
+      properties:
+        category: { type: string }
+        identifier: { type: string }
+        jurisdiction: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        estimatedValue: { type: number }
+        address: { type: string }
+        description: { type: string }
+        lastActivityDate: { type: string }
+        sourceRegistry: { type: string }
+        ownerEntityId: { type: integer }
+
+    # ── RELATIONSHIP ──────────────────────────────────────────────────────────
+    Relationship:
+      type: object
+      required: [id, sourceEntityId, targetId, targetType, relationshipType, createdAt]
+      properties:
+        id: { type: integer }
+        sourceEntityId: { type: integer }
+        targetId: { type: integer }
+        targetType: { type: string }
+        relationshipType: { type: string }
+        strength: { type: ["number", "null"] }
+        notes: { type: ["string", "null"] }
+        sourceEntityName: { type: ["string", "null"] }
+        targetName: { type: ["string", "null"] }
+        createdAt: { type: string }
+
+    RelationshipInput:
+      type: object
+      required: [sourceEntityId, targetId, targetType, relationshipType]
+      properties:
+        sourceEntityId: { type: integer }
+        targetId: { type: integer }
+        targetType: { type: string }
+        relationshipType: { type: string }
+        strength: { type: number }
+        notes: { type: string }
+
+    # ── RESEARCH SESSION ──────────────────────────────────────────────────────
+    ResearchSession:
+      type: object
+      required: [id, targetEntityId, crmStatus, createdAt]
+      properties:
+        id: { type: integer }
+        targetEntityId: { type: integer }
+        targetEntityName: { type: ["string", "null"] }
+        winningPath: { type: ["string", "null"] }
+        mctsSteps: { type: ["string", "null"] }
+        generatedPitch: { type: ["string", "null"] }
+        crmStatus: { type: string }
+        lastContactDate: { type: ["string", "null"] }
+        bayesianScoreAtRuntime: { type: ["number", "null"] }
+        pathScore: { type: ["number", "null"] }
+        identityScore: { type: ["number", "null"] }
+        ownershipScore: { type: ["number", "null"] }
+        contactScore: { type: ["number", "null"] }
+        accessScore: { type: ["number", "null"] }
+        wealthScore: { type: ["number", "null"] }
+        freshnessScore: { type: ["number", "null"] }
+        sourceQualityScore: { type: ["number", "null"] }
+        scoreBreakdown: { type: ["string", "null"] }
+        safeUseStatus: { type: string }
+        safeUseReviewedAt: { type: ["string", "null"] }
+        safeUseNote: { type: ["string", "null"] }
+        candidateFunnel:
+          allOf:
+            - $ref: "#/components/schemas/ContactCandidateFunnel"
+          nullable: true
+        createdAt: { type: string }
+
+    ContactCandidateFunnel:
+      type: object
+      required:
+        - totalCandidates
+        - discovered
+        - sourceLinked
+        - attributionReview
+        - independentlyCorroborated
+        - verifiedDirectRoute
+        - organizationOnly
+        - conflicted
+        - independentSourceDomains
+        - candidates
+      properties:
+        totalCandidates: { type: integer }
+        discovered: { type: integer }
+        sourceLinked: { type: integer }
+        attributionReview: { type: integer }
+        independentlyCorroborated: { type: integer }
+        verifiedDirectRoute: { type: integer }
+        organizationOnly: { type: integer }
+        conflicted: { type: integer }
+        independentSourceDomains: { type: integer }
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactCandidate"
+
+    ContactCandidate:
+      type: object
+      required:
+        - key
+        - vectorType
+        - value
+        - providers
+        - sourceDomains
+        - sourceUrls
+        - scopes
+        - personNames
+        - state
+        - conflictCount
+      properties:
+        key: { type: string }
+        vectorType: { type: string }
+        value: { type: string }
+        providers:
+          type: array
+          items: { type: string }
+        sourceDomains:
+          type: array
+          items: { type: string }
+        sourceUrls:
+          type: array
+          items: { type: string }
+        scopes:
+          type: array
+          items: { type: string }
+        personNames:
+          type: array
+          items: { type: string }
+        state: { type: string }
+        conflictCount: { type: integer }
+
+    ResearchEvidence:
+      type: object
+      required: [id, sessionId, entityId, claimType, claim, status, confidence, observedAt, createdAt]
+      properties:
+        id: { type: integer }
+        sessionId: { type: integer }
+        entityId: { type: integer }
+        claimType: { type: string }
+        claim: { type: string }
+        value: { type: ["string", "null"] }
+        sourceName: { type: ["string", "null"] }
+        sourceUrl: { type: ["string", "null"] }
+        sourceDomain: { type: ["string", "null"] }
+        status: { type: string }
+        confidence: { type: number }
+        rejectionReason: { type: ["string", "null"] }
+        observedAt: { type: string }
+        publishedAt: { type: ["string", "null"] }
+        validFrom: { type: ["string", "null"] }
+        validTo: { type: ["string", "null"] }
+        freshnessScore: { type: number }
+        metadata: { type: string }
+        createdAt: { type: string }
+
+    ResearchRunEvent:
+      type: object
+      required: [id, sessionId, phase, status, durationMs, message, createdAt]
+      properties:
+        id: { type: integer }
+        sessionId: { type: integer }
+        phase: { type: string }
+        status: { type: string }
+        durationMs: { type: integer }
+        message: { type: string }
+        metadata: { type: string }
+        createdAt: { type: string }
+
+    ResearchCaseInput:
+      type: object
+      required: [entityId]
+      properties:
+        entityId: { type: integer }
+        objective: { type: string }
+        motivation: { type: string }
+        directorModel: { type: string }
+
+    BureauDiscoveryInput:
+      type: object
+      required: [objective, motivation]
+      properties:
+        objective: { type: string, minLength: 1 }
+        motivation: { type: string, minLength: 1 }
+        geography: { type: string }
+        exclusions: { type: array, items: { type: string } }
+
+    BureauInitialResearchInput:
+      type: object
+      required: [researchResponse]
+      properties:
+        researchResponse: { type: string, minLength: 1 }
+        bossCommentary: { type: string }
+        sourceUrls: { type: array, items: { type: string } }
+
+    BureauPromoteTargetInput:
+      type: object
+      required: [entityId]
+      properties:
+        entityId: { type: integer }
+
+    BureauAdmitCandidateInput:
+      type: object
+      required: [candidateName]
+      properties:
+        candidateName: { type: string, minLength: 1 }
+
+    BureauCaseContinuationResponse:
+      type: object
+      required: [caseId, jobId, pollUrl, caseUrl, message]
+      properties:
+        caseId: { type: integer }
+        jobId: { type: string }
+        pollUrl: { type: string }
+        caseUrl: { type: string }
+        message: { type: string }
+
+    ResearchCaseDirectiveInput:
+      type: object
+      required: [directive]
+      properties:
+        directive: { type: string, minLength: 1 }
+
+    ResearchCase:
+      type: object
+      required: [id, targetEntityId, status, directorMode, objective, motivation, caseFile, iteration, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        targetEntityId: { type: ["integer", "null"] }
+        caseType: { type: string }
+        targetEntityName: { type: ["string", "null"] }
+        targetEntityType: { type: ["string", "null"] }
+        status: { type: string }
+        directorMode: { type: string }
+        directorProvider: { type: string }
+        directorModel: { type: string }
+        objective: { type: string }
+        motivation: { type: string }
+        openingPrompt: { type: string }
+        caseFile: { type: string }
+        currentAction: { type: ["string", "null"] }
+        iteration: { type: integer }
+        lastDecisionAt: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    BureauCase:
+      allOf:
+        - $ref: "#/components/schemas/ResearchCase"
+
+
+    ResearchCaseEvent:
+      type: object
+      required: [id, caseId, iteration, actorRole, eventType, status, summary, payload, createdAt]
+      properties:
+        id: { type: integer }
+        caseId: { type: integer }
+        iteration: { type: integer }
+        actorRole: { type: string }
+        eventType: { type: string }
+        status: { type: string }
+        summary: { type: string }
+        payload: { type: string }
+        createdAt: { type: string }
+
+    ResearchRunInput:
+      type: object
+      required: [entityId]
+      properties:
+        entityId: { type: integer }
+        depth: { type: integer }
+        focusRegistries: { type: string }
+
+    SessionStatusUpdate:
+      type: object
+      required: [crmStatus]
+      properties:
+        crmStatus: { type: string }
+        lastContactDate: { type: string }
+        notes: { type: string }
+
+    # ── DASHBOARD ─────────────────────────────────────────────────────────────
+    HotLead:
+      type: object
+      required: [entityId, entityName, entityType, bayesianScore, accessScore, signal, signalDate, assetCount, hasResearchSession]
+      properties:
+        entityId: { type: integer }
+        entityName: { type: string }
+        entityType: { type: string }
+        bayesianScore: { type: number }
+        accessScore: { type: number, description: "Contactability-first score from public contact evidence and directness (0-1)" }
+        signal: { type: string }
+        signalDate: { type: string }
+        assetCount: { type: integer }
+        estimatedNetWorth: { type: ["number", "null"] }
+        crmStatus: { type: ["string", "null"] }
+        hasResearchSession: { type: boolean }
+        nationality: { type: ["string", "null"] }
+        contactOutcome: { type: ["string", "null"] }
+        contactConfidence: { type: ["integer", "null"] }
+        linkedinHeadline: { type: ["string", "null"] }
+        twitterBio: { type: ["string", "null"] }
+        telegramBio: { type: ["string", "null"] }
+        personalWebsite: { type: ["string", "null"] }
+        foundationName: { type: ["string", "null"] }
+
+    DashboardStats:
+      type: object
+      required: [totalEntities, totalAssets, totalRelationships, avgBayesianScore, hotLeadsCount, activeResearchSessions, crmBreakdown, assetsByCategory, topScorers]
+      properties:
+        totalEntities: { type: integer }
+        totalAssets: { type: integer }
+        totalRelationships: { type: integer }
+        avgBayesianScore: { type: number }
+        hotLeadsCount: { type: integer }
+        activeResearchSessions: { type: integer }
+        crmBreakdown:
+          type: array
+          items:
+            type: object
+            required: [status, count]
+            properties:
+              status: { type: string }
+              count: { type: integer }
+        assetsByCategory:
+          type: array
+          items:
+            type: object
+            required: [category, count, totalValue]
+            properties:
+              category: { type: string }
+              count: { type: integer }
+              totalValue: { type: number }
+        topScorers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Entity"
+
+    MapAsset:
+      type: object
+      required: [id, category, identifier, jurisdiction, latitude, longitude]
+      properties:
+        id: { type: integer }
+        category: { type: string }
+        identifier: { type: string }
+        jurisdiction: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        estimatedValue: { type: ["number", "null"] }
+        address: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        ownerEntityId: { type: ["integer", "null"] }
+        ownerName: { type: ["string", "null"] }
+        ownerBayesianScore: { type: ["number", "null"] }
+        lastActivityDate: { type: ["string", "null"] }
+        sourceRegistry: { type: ["string", "null"] }
+
+    # ── GRAPH ─────────────────────────────────────────────────────────────────
+    GraphNode:
+      type: object
+      required: [id, label, nodeType, isTarget, isCentral]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        nodeType: { type: string }
+        bayesianScore: { type: ["number", "null"] }
+        estimatedValue: { type: ["number", "null"] }
+        metadata: { type: ["string", "null"] }
+        nationality: { type: ["string", "null"] }
+        isTarget: { type: boolean }
+        isCentral: { type: boolean }
+
+    GraphEdge:
+      type: object
+      required: [id, source, target, label]
+      properties:
+        id: { type: string }
+        source: { type: string }
+        target: { type: string }
+        label: { type: string }
+        strength: { type: ["number", "null"] }
+
+    EntityGraph:
+      type: object
+      required: [nodes, edges, centralNodeId, depth]
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphEdge"
+        centralNodeId: { type: string }
+        depth: { type: integer }
+
+    ConnectionPath:
+      type: object
+      required: [found, path, edges, hops]
+      properties:
+        found: { type: boolean }
+        path:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphEdge"
+        hops: { type: integer }
+        pathScore: { type: ["number", "null"] }
+        recommendation: { type: ["string", "null"] }
+
+    # ── IMPROVEMENT ───────────────────────────────────────────────────────────
+    ImprovementLog:
+      type: object
+      required: [id, entityId, persona, category, priority, title, description, status, createdAt]
+      properties:
+        id: { type: integer }
+        entityId: { type: integer }
+        entityName: { type: ["string", "null"] }
+        entityType: { type: ["string", "null"] }
+        persona: { type: string }
+        category: { type: string }
+        priority: { type: string }
+        title: { type: string }
+        description: { type: string }
+        actionTaken: { type: ["string", "null"] }
+        status: { type: string }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    ImprovementJobStarted:
+      type: object
+      required: [jobId, entityCount, message, pollUrl]
+      properties:
+        jobId: { type: string }
+        entityCount: { type: integer }
+        message: { type: string }
+        pollUrl: { type: string }
+
+    EntityImprovementResult:
+      type: object
+      required: [entityId, entityName, inserted, message]
+      properties:
+        entityId: { type: integer }
+        entityName: { type: string }
+        inserted: { type: integer }
+        message: { type: string }
+
+    ImprovementJobState:
+      type: object
+      required: [jobId, type, status, progress, inserted, skipped, errors, total, startedAt, message]
+      properties:
+        jobId: { type: string }
+        type: { type: string }
+        status: { type: string }
+        progress: { type: integer }
+        inserted: { type: integer }
+        skipped: { type: integer }
+        errors: { type: integer }
+        total: { type: integer }
+        startedAt: { type: string }
+        finishedAt: { type: ["string", "null"] }
+        message: { type: string }
+
+    ImprovementStats:
+      type: object
+      required: [total, byPersona, byPriority]
+      properties:
+        total: { type: integer }
+        byPersona:
+          type: array
+          items:
+            type: object
+            required: [persona, status, count]
+            properties:
+              persona: { type: string }
+              status: { type: string }
+              count: { type: integer }
+        byPriority:
+          type: array
+          items:
+            type: object
+            required: [priority, count]
+            properties:
+              priority: { type: string }
+              count: { type: integer }

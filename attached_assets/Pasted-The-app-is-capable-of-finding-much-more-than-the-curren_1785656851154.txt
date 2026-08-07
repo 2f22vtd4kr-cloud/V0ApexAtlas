@@ -1,0 +1,176 @@
+The app is capable of finding much more than the current persisted metrics show.
+The real problem is that our pipeline is currently over-conservative and internally inconsistent after the search results come back.
+The latest web-search prompt
+For Mariann, the latest enrichment used four parallel Phase 0 providers:
+* Perplexity Sonar
+* Gemini with Google Search grounding
+* Tavily → Groq extraction
+* Exa → Groq extraction
+The shared Perplexity/Gemini prompt was effectively:
+You are conducting Phase 0 OSINT for "Mariann Staxrud Utstumo" in Norway.
+Goal: find every named human decision-maker and their evidence-backed contact path.
+
+Known city/location context: Oslo
+
+REALISM / REACHABILITY CONTROL:
+[the existing reachability assessment and blockers]
+
+This is a high-net-worth individual. Find PERSONAL direct contact information ONLY.
+
+STEP 1 — PERSONAL DIRECT EMAIL:
+Their individual named email address only when the exact address is explicitly stated.
+NOT info@, press@, media@, contact@, or any shared company inbox.
+Never construct one from a guessed domain pattern.
+
+STEP 2 — PERSONAL MOBILE / DIRECT LINE:
+Their personal cell phone or personal direct office extension ONLY.
+Do not return a corporate headquarters number, company main switchboard,
+reception line, investor-relations line, press office, or general enquiries number.
+
+STEP 3 — PERSONAL LINKEDIN /in/ PROFILE:
+Their personal /in/ profile URL, not a /company/ page.
+
+STEP 4 — PERSONAL SOCIAL ACCOUNTS:
+Instagram or Twitter/X accounts personally managed by this individual.
+Not corporate brand accounts.
+
+STEP 5 — ASSOCIATED COMPANIES AND ROLES:
+Investigate named assistants, chiefs of staff, family-office executives,
+foundation executives, or authorized professional intermediaries only when explicitly corroborated.
+
+It then asked for JSON containing:
+{
+"ownershipSummary": "...",
+"email": "general org contact email or null",
+"phone": "+XX XXX XXX or null",
+"linkedin": "personal LinkedIn /in/ profile or null",
+"instagram": "personal Instagram URL or null",
+"twitter": "personal Twitter/X URL or null",
+"publicProfile": "...",
+"publicProfileSources": [],
+"ownerResolutions": [],
+"sources": [],
+"reachability": {
+"status": "direct | intermediary | bounded | research_only",
+"viableRoute": true,
+"evidence": []
+}
+}
+
+The Tavily query was approximately:
+Mariann Staxrud Utstumo Oslo Norway owner contact email phone authorized intermediary
+
+The Exa query was approximately:
+Mariann Staxrud Utstumo Oslo Norway owner contact email authorized intermediary
+
+The regular web-search queries included:
+"Mariann Staxrud Utstumo" email contact
+"Mariann Staxrud Utstumo" linkedin
+"Mariann Staxrud Utstumo" " = OSLO (ERLIK OSLO) DA" contact
+"Mariann Staxrud Utstumo" Oslo contact email phone
+
+The biggest prompt bug
+This is a genuine defect:
+"email": "general org contact email or null"
+
+That schema is used even for an HNWI/person target, despite the surrounding instructions saying:
+Find PERSONAL direct contact information ONLY.
+
+So the prompt is simultaneously telling the model:
+1. Find Mariann’s personal/direct contact.
+2. Return a “general org contact email.”
+That can absolutely reduce extraction quality.
+Why multiple models still produce poor persisted data
+The models are not currently functioning as a true ensemble.
+1. The providers search independently, but their outputs are not reconciled intelligently
+Perplexity, Gemini, Tavily, and Exa each return results. But the system mostly:
+* collects their fields,
+* records provider evidence,
+* scrapes some URLs,
+* then promotes only values passing strict persistence gates.
+There is no meaningful “Gemini found X, Perplexity found X, Tavily found X—therefore this is a high-confidence candidate” reconciliation layer.
+2. The system refuses useful but non-perfect results
+For example, Google/Gemini may find:
+Mariann Staxrud Utstumo — LinkedIn profile
+mariann@company-domain.no
+
+But the pipeline may reject or downgrade it if:
+* the email is not explicitly visible in the cited text,
+* the source URL is not attached directly to the person,
+* the domain is not clearly associated with the person,
+* only one provider returned it,
+* it resembles a company or role-based mailbox,
+* it cannot be independently corroborated.
+That is appropriate for verified contact promotion, but it is too strict for the initial candidate discovery layer.
+We need to preserve the result as:
+“Potential contact candidate — requires review”
+instead of treating it almost like:
+“No usable contact found.”
+3. Search results are recorded with weak attribution
+The provider-level contact writes in web-enricher.tsoften record contacts without explicit person-level attribution metadata. For example, a result from Gemini or Perplexity is recorded generically rather than as:
+{
+"scope": "person_candidate",
+"personName": "Mariann Staxrud Utstumo",
+"provider": "gemini",
+"sourceUrl": "..."
+}
+
+That makes later quality checks unable to distinguish:
+* a contact for Mariann,
+* a company switchboard,
+* an organization mailbox,
+* a contact belonging to another person mentioned in the article.
+The safe behavior is to downgrade everything. The result is safe, but the yield is terrible.
+4. Groq is not cross-checking the other models
+For Tavily and Exa, the flow is:
+Tavily/Exa search → excerpts → one Groq extraction call
+
+Groq is not comparing Gemini, Perplexity, Tavily, and Exa answers. It is extracting from whichever text it receives.
+Likewise, extractWithAI() returns the first successful Groq/OpenRouter extraction. It does not ask multiple models to extract the same source text and then reconcile disagreements.
+So “multiple trained LLMs” currently means:
+multiple independent search attempts
+—not:
+multiple models jointly verifying and merging every discovered contact.
+5. The current pipeline prioritizes evidentiary purity over discovery yield
+The design has strong safeguards against invented emails, but it currently collapses these states too aggressively:
+not found
+found but uncertain
+found with one source
+found with source but attribution uncertain
+found and independently corroborated
+
+Those should be five separate states. Right now, several of the first four end up looking like “no useful contact.”
+The contradiction in our metrics
+The database currently says:
+* 10 direct-contact candidates
+* 13 contactable records
+* 0 independently supported contact rows
+* 0 verified direct contacts
+* 1 qualified hot lead
+That does not mean:
+“The app can only find one useful person.”
+It means:
+“Only one record currently passes the app’s strict promotion rules.”
+That is a data-promotion problem, not a fair measure of search capability.
+And yes: comparing this to asking Gemini or Google directly exposes the gap. A direct Gemini answer is usually willing to say:
+“This appears to be the person’s professional email / LinkedIn / company route.”
+Our app currently says:
+“Unless I can prove the contact is personal, directly cited, correctly attributed, and independently corroborated, I will not promote it.”
+That is a valid compliance posture, but it is the wrong default if the goal is high-yield OSINT discovery.
+My corrected assessment
+I would revise the scores to:
+* UI/product architecture: 8/10
+* Search/retrieval capability: 7/10
+* Raw OSINT discovery potential: 7/10
+* Contact candidate yield: 4/10
+* Evidence promotion and attribution: 4/10
+* Verified intelligence quality: 5/10
+So the overall app is closer to 7/10 as a platform, not 6.5/10 because “only one research session exists.”
+The low score was driven by the verification layer and current database state, not by the fact that the underlying search system is incapable of finding contacts. Your criticism is justified: the app should be surfacing substantially more reviewable contact candidates even when it refuses to promote them as verified direct access.
+The highest-impact fix is to split contact handling into:
+1. Discovered candidate
+2. Source-linked candidate
+3. Attribution-reviewed candidate
+4. Independently corroborated
+5. Verified direct route
+That would preserve the no-invention safeguards while allowing the app to show the useful results that Gemini/Google are already finding.

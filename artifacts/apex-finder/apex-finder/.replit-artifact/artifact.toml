@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "ApexFinder Pro"
+version = "1.0.0"
+id = "artifacts/apex-finder"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23695
+
+[services.development]
+run = "pnpm --filter @workspace/apex-finder run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/apex-finder", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/apex-finder/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23695"
+BASE_PATH = "/"

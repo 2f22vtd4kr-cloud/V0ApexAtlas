@@ -1,0 +1,8 @@
+- [Import setup](import-setup.md) — workspace re-import steps, workflow names, and env vars required to bring BigContacts online from scratch.
+- [Mistral Bureau web-search lane](mistral-bureau-lane.md) — Conversations API web search is review-only and rate-limited to one request per second.
+- [NVIDIA NIM Bureau reasoning](nvidia-nim-bureau-reasoning.md) — GLM-5.2 reasons over the case file only; invalid or unavailable recommendations use the local planner.
+- [Gemini Boss orchestration](gemini-boss-orchestration.md) — Gemini is the authoritative text-only Head Investigator; search-capable lanes gather evidence separately.
+- [TypeScript project-reference outputs](typescript-project-reference-outputs.md) — consuming artifacts must rebuild ignored library declarations before typechecking.
+- [Discovery case-context shaft](discovery-case-context-shaft.md) — discovery lanes append ordered reports to one durable context before Boss/right-hand review.
+- [Bureau continuation contract](bureau-continuation-contract.md) — async continuation mutations return job-start envelopes; clients refetch the case instead of treating 202 output as case state.
+- [Bureau contact-audit completeness](bureau-contact-audit-completeness.md) — discovery is not contact-complete until each persisted candidate receives an explicit structured-route audit.

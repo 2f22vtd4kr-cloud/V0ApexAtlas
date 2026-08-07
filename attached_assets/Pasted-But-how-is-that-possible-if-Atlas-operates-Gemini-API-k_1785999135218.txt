@@ -1,0 +1,150 @@
+But how is that possible if Atlas operates Gemini API keys too so it must have basically done the same enquiry as manual Gemini/Google
+You’re right to challenge that. Using the Gemini API does not automatically mean Atlas asked the same question or used the same evidence path as your manual Google/Gemini search. I’ll compare Atlas’s actual Gemini prompt, query construction, and page-fetch/adjudication flow for the Amaron run so I can explain the difference precisely.
+I’m comparing the actual Atlas Gemini call with the manual search path now: the important question is not “did both use Gemini?” but “what target/query did Atlas send, what did Gemini return, and what happened to the returned evidence afterward?”
+The code confirms the key distinction: Atlas’s Gemini call was not a free-form copy of the manual investigation. It was a structured, corporation-scoped extraction with a schema and downstream gates. I’m checking one final detail—whether that schema could even carry a person-specific phone number in the pre-patch version—because that determines whether the number was lost during extraction or later during adjudication.
+Your logic is sound: Atlas could have encountered the same information through its Gemini lane. My earlier statement that Atlas definitely did not see the number was too strong. The repo does not preserve the raw Gemini response for that run, so we cannot prove whether Gemini returned the number internally.
+What we can establish is why using the Gemini API did not produce the same result as your manual Gemini/Google enquiry:
+1. Atlas researched a different subject. It sent Gemini the corporation target: “Amaron Helsingborg Topasen 7 AB” — type: Corporation  Your manual research was effectively asking: “Who are the Amaron decision-makers, and what are their direct contact details—specifically Kjell Rudsby?”  Those are materially different searches.
+2. The old Atlas prompt did not explicitly require parent/operator expansion. Before the patch, it could focus on the SPV’s own records and statutory officers. The later patch added explicit instructions to resolve the parent/operator group and search Amaron’s executive pages.
+3. The old data model could not properly store a person-specific phone. In the pre-patch schema:
+    * top-level phone meant the organization’s phone;
+    * person-level ownerResolutions supported email and social links, but not a phone field.
+4. Therefore, even if Gemini returned +46 (0)70 817 84 40 near Kjell’s name, Atlas had no reliable person-phone field to carry that association forward. It could either:
+    * interpret it as the corporation’s phone, or
+    * drop the person-level association during parsing/adjudication.
+5. Atlas imposed an additional evidence gate. Gemini’s grounded answer was only a lead. Atlas required a citation that clearly tied the number to Kjell in the relevant page segment. Search grounding, repeated snippets, or a general source list did not count as person-level proof.
+6. The old page fetch missed the key executive payload. The Amaron page’s executive records were beyond the old fetch boundary. So even if Gemini pointed Atlas toward Amaron’s site, the subsequent exact-page verification step could still fail to retrieve the section containing Kjell and the number.
+So the most accurate conclusion is:
+Atlas and manual Gemini may have used the same underlying Google-grounded search capability, but Atlas did not perform the same investigation. It used a corporation-scoped prompt, an older contact schema, an incomplete operator-page fetch, and a stricter person-attribution gate.
+It is therefore plausible that Atlas’s Gemini call saw or was capable of seeing the number, but the repository does not prove that the pre-patch Atlas run extracted it as Kjell’s phone. What the code does prove is that, before the patch, Atlas had no dependable way to preserve and promote that person-phone association even if Gemini supplied it.
+But as you can see from the context.md I also asked Replit Agent to do a research and then compare it to the Apex Atlas on the same target. And Apex again didn't find what in this case Replit Agent found. Although Replit Agent prompts weren't manually set up by me. Why is that?
+You’re right to challenge that distinction. I’m going back to the exact comparison recorded in Context.md, rather than treating the manual note as a different experiment, and I’ll separate the effects of the two agents’ prompts, tools, and output policies.
+The comparison in Context.md changes the answer: this was not merely “your manual prompt versus Atlas.” Replit Agent performed an independent research pass on the same target and still surfaced Kjell’s number. I’m tracing that run’s actual research mode and source path now, because the likely explanation is not prompt wording alone but the difference between an agent that can pursue a lead interactively and Atlas’s bounded, schema-driven pipeline.
+I found the comparison artifacts in the repository. I’m reading the two Replit-Agent research responses and the Amaron note side by side now; that should let me explain the discrepancy based on what each agent actually did, not just infer from Atlas’s architecture.
+Because Replit Agent and Apex Atlas were not actually running the same kind of research process, even though both used Gemini/Google-style web research and were given the same company.
+The important difference is not whether you manually wrote the prompt. It is who controlled the research loop.
+What Replit Agent did
+The Replit Agent research was an interactive, open-ended investigation. It could:
+1. Search the exact target name.
+2. Recognize that the target was a special-purpose property company.
+3. Follow the relationship to Amaron’s operating and fund-management companies.
+4. Search the names of executives it discovered.
+5. Open company pages, press releases, PDFs, registries, and contact pages.
+6. Keep the discovered names in working context.
+7. Ask a second set of searches such as:
+    * "Kjell Rudsby" phone
+    * "Kjell Rudsby" Amaron
+    * "Amaron" contact
+    * "Amaron Commercial Properties" executives
+8. Return a human-readable report rather than fitting everything into Atlas’s narrow entity schema.
+That is why it could produce a result like:
+Kjell Rudsby — CEO / Compliance Officer — +46 (0)70 817 84 40
+The prompt did not need to be manually engineered by you because Replit Agent already has hidden system-level instructions telling it how to browse, investigate, follow sources, summarize findings, and revise searches when the first result is incomplete.
+In other words, Replit Agent supplied the research strategy dynamically.
+What Atlas did
+Atlas was executing a production pipeline, not acting as a general research assistant. Its old flow was closer to:
+target company
+→ fixed provider queries
+→ one structured extraction prompt
+→ bounded page fetches
+→ JSON parsing
+→ evidence attribution
+→ contact adjudication
+→ publication gate
+
+That creates several failure points.
+1. Atlas initially treated the SPV as the research subject
+The target was:
+Amaron Helsingborg Topasen 7 AB
+Atlas initially concentrated on the legal entity itself. But that entity is essentially a property-holding vehicle with no useful public personnel structure.
+Replit Agent made the conceptual jump:
+“This is an SPV. The useful people are probably at Amaron’s operating or fund-management level.”
+The old Atlas prompt did not force that jump. The later patch explicitly added the corporate-structure handoff because this was exactly the missing behavior.
+2. Replit Agent was allowed to follow multi-hop relationships
+Replit Agent could reason:
+Topasen 7 AB
+→ Amaron Real Estate AB
+→ Amaron Commercial Properties AB
+→ Amaron executives
+→ Kjell Rudsby
+→ phone number
+
+The original Atlas pipeline was much more bounded. It could discover the parent or operator as a lead, but it did not reliably continue from:
+target → operator → executive → person-specific contact
+
+That multi-hop behavior was added only after the Amaron failure.
+3. Atlas’s old schema could not properly represent the result
+This is one of the strongest technical explanations.
+Before the repair, Atlas had:
+phone: string | null
+
+at the organization level.
+Its person-level structure supported fields such as:
+name
+email
+linkedin
+instagram
+twitter
+
+but did not have a person-specific phone field.
+So if Gemini returned something like:
+Kjell Rudsby — +46 (0)70 817 84 40
+
+Atlas had no safe representation for:
+phone belongs to Kjell Rudsby
+
+It could only put the number into the corporation’s top-level phone field, which would be incorrect. A fail-closed system should reject or discard that association rather than attach it incorrectly.
+Replit Agent had no such restriction. It could simply write the relationship in prose.
+4. Atlas had a strict evidence gate; Replit Agent had a reporting objective
+Atlas was designed to answer:
+“Can this contact be safely promoted into the database as a validated route for this target?”
+Replit Agent was answering:
+“What can I find about this target and its relevant decision-makers?”
+Those are different objectives.
+Atlas required the phone to have:
+* exact page-level evidence;
+* a clear person-to-number association;
+* correct target/entity linkage;
+* acceptable source provenance;
+* sufficient identity confidence;
+* a valid route classification.
+Replit Agent could report the number as a research finding even if the evidence was distributed across several sources.
+That makes Replit Agent more effective for discovery, but also means its report should not automatically be treated as database-ready truth. In the attached Amaron report, some citations are broad or indirect, and at least one link is a Google Knowledge Graph search URL rather than a primary source. The number may be correct, but the report still needs verification before promotion.
+5. Atlas’s page-fetch limit hid the decisive evidence
+The Amaron operator page contained important executive information deep inside a large embedded page payload. The old Atlas fetch stopped around the earlier bounded window, approximately 80 KB.
+Therefore:
+* Replit Agent could retrieve or inspect the page more completely;
+* Atlas could receive the domain as a lead but never see the executive records;
+* the final Atlas adjudicator had nothing exact to attribute to Kjell.
+This explains why the later repair specifically increased the page-fetch window and added person-scoped extraction.
+6. Replit Agent’s “prompt” was not just the visible user request
+Even when you do not manually configure a prompt, Replit Agent operates under additional system instructions and has a different tool environment. It is not equivalent to sending the same text to Gemini through an API.
+The effective Replit Agent process is more like:
+user request
++ Replit Agent system instructions
++ browsing/search tools
++ iterative reasoning
++ source following
++ adaptive follow-up queries
++ free-form report generation
+
+Atlas’s effective process was more like:
+Atlas-generated research prompt
++ Gemini Search grounding
++ one provider response
++ fixed JSON schema
++ bounded scraping
++ strict adjudication
+
+The fact that both may use Gemini does not make their behavior equivalent. The surrounding orchestration is often more important than the model name.
+The clearest conclusion
+The comparison does not show that Gemini was incapable of finding the phone number for Atlas.
+It shows that:
+Replit Agent was able to discover and connect the relevant corporate hierarchy interactively, while the pre-patch Atlas pipeline stopped at the legal entity, had a narrower fetch boundary, lacked a person-phone field, and required stronger attribution before retaining the result.
+So there are three possible locations for the original Atlas loss:
+1. Gemini never returned the number;
+2. Gemini returned it, but Atlas’s parser/schema could not associate it with Kjell;
+3. Atlas found a lead, but the page-fetch or adjudication stage could not validate it.
+The repository does not contain the raw pre-patch Gemini response, so we cannot distinguish those three with certainty. But the architecture makes #2 and #3 entirely plausible, and it explains why Replit Agent could succeed without you manually designing a sophisticated research prompt.
+The deeper lesson is that Atlas was optimized for safe, repeatable publication, while Replit Agent was optimized for adaptive discovery. Before the Amaron patches, Atlas had the safety controls but not enough of the discovery loop.
+But Apex Atlas had much more tools for research. So after the patch did it became a dynamic adaptive discovery tool? If not - then write how to make it work that way and actually be better then regular Replit Agent or Google/Gemini since there are much more tools that are just being used in wring way.
