@@ -36,6 +36,32 @@ export type BureauAction = {
   rationale: string;
 };
 
+export type MasterContactVector = {
+  id: string;
+  category:
+    | "identity"
+    | "registry"
+    | "digital_footprint"
+    | "public_route"
+    | "relationship"
+    | "contradiction";
+  vector: string;
+  purpose: string;
+  tools: string[];
+  status: "pending" | "attempted" | "blocked" | "not_applicable";
+  lastAttemptAt: string | null;
+  lastTools: string[];
+  latencyMs: number | null;
+  costClass: "none" | "low" | "medium" | "high" | null;
+  evidenceNote: string | null;
+};
+
+export type MasterContactPlan = {
+  version: 1;
+  reviewOnly: true;
+  vectors: MasterContactVector[];
+};
+
 export type BureauContactRoute = {
   rank: number;
   tier: string;
@@ -54,7 +80,16 @@ export type BureauContactRoute = {
 };
 
 export type DiscoveryContactEvidence = {
-  vectorType: "email" | "phone" | "linkedin" | "twitter" | "instagram" | "telegram" | "website" | "organization_contact" | "other";
+  vectorType:
+    | "email"
+    | "phone"
+    | "linkedin"
+    | "twitter"
+    | "instagram"
+    | "telegram"
+    | "website"
+    | "organization_contact"
+    | "other";
   value: string;
   scope: "person" | "organization" | "unknown";
   personName: string | null;
@@ -65,6 +100,7 @@ export type DiscoveryContactEvidence = {
 
 export type ResearchCaseFile = {
   version: 1;
+  masterContactPlan: MasterContactPlan;
   discoveryContext?: {
     caseId: number;
     humanBrief: DiscoveryCaseFile["humanBrief"];
@@ -154,7 +190,12 @@ export type DiscoveryCaseFile = {
   };
   investigatorReports: Array<{
     id: string;
-    lane: "gemini-boss" | "nvidia-right-hand" | "mistral-web" | "broad-web" | "registry";
+    lane:
+      | "gemini-boss"
+      | "nvidia-right-hand"
+      | "mistral-web"
+      | "broad-web"
+      | "registry";
     provider: string;
     status: "completed" | "unavailable" | "failed";
     iteration: number;
@@ -231,7 +272,8 @@ export type DiscoveryCaseFile = {
  * availability and pricing vary by key/project and change over time.
  */
 export const GEMINI_BOSS_MODEL_PENDING = "auto-low-cost-pending";
-const GEMINI_MODELS_API = "https://generativelanguage.googleapis.com/v1beta/models";
+const GEMINI_MODELS_API =
+  "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_KEY_NAMES = [
   "GEMINI_API_KEY",
   ...Array.from({ length: 13 }, (_, index) => `GEMINI_API_KEY_${index + 1}`),
@@ -269,7 +311,8 @@ export type GeminiBossDiscoveryResult = {
   error: string | null;
 };
 
-export type DiscoveryInvestigatorReport = DiscoveryCaseFile["investigatorReports"][number];
+export type DiscoveryInvestigatorReport =
+  DiscoveryCaseFile["investigatorReports"][number];
 
 export type GeminiBossPlanResult = {
   status: "completed" | "unavailable";
@@ -294,15 +337,16 @@ export type GeminiBossStatus = {
 };
 
 function getGeminiKeys(): string[] {
-  return GEMINI_KEY_NAMES
-    .map((name) => process.env[name] ?? "")
-    .filter(Boolean);
+  return GEMINI_KEY_NAMES.map((name) => process.env[name] ?? "").filter(
+    Boolean,
+  );
 }
 
 function getGeminiKeyEntries(): Array<{ name: string; key: string }> {
-  return GEMINI_KEY_NAMES
-    .map((name) => ({ name, key: process.env[name] ?? "" }))
-    .filter((entry) => Boolean(entry.key));
+  return GEMINI_KEY_NAMES.map((name) => ({
+    name,
+    key: process.env[name] ?? "",
+  })).filter((entry) => Boolean(entry.key));
 }
 
 function modelVersion(name: string): [number, number] {
@@ -315,38 +359,59 @@ function modelRank(name: string): [number, number, number, number, string] {
   const [major, minor] = modelVersion(normalized);
   // Prefer the current full Flash family for the Interactions API, then
   // Flash-Lite, and keep both ahead of Pro or specialized models.
-  const family = normalized.includes("flash") && !normalized.includes("flash-lite")
-    ? 0
-    : normalized.includes("flash-lite")
+  const family =
+    normalized.includes("flash") && !normalized.includes("flash-lite")
+      ? 0
+      : normalized.includes("flash-lite")
+        ? 1
+        : 2;
+  const lifecycle =
+    normalized.includes("preview") || normalized.includes("experimental")
       ? 1
-      : 2;
-  const lifecycle = normalized.includes("preview") || normalized.includes("experimental") ? 1 : 0;
-  const specialized = normalized.includes("image")
-    || normalized.includes("audio")
-    || normalized.includes("embedding")
-    || normalized.includes("tts")
-    || normalized.includes("deep-research")
-    ? 1
-    : 0;
+      : 0;
+  const specialized =
+    normalized.includes("image") ||
+    normalized.includes("audio") ||
+    normalized.includes("embedding") ||
+    normalized.includes("tts") ||
+    normalized.includes("deep-research")
+      ? 1
+      : 0;
   return [family, specialized, lifecycle, major * 100 + minor, normalized];
 }
 
-function chooseGeminiModelCandidates(entries: GeminiModelCatalogEntry[]): string[] {
+function chooseGeminiModelCandidates(
+  entries: GeminiModelCatalogEntry[],
+): string[] {
   return entries
-    .filter((entry) => entry.name && entry.supportedGenerationMethods?.includes("generateContent"))
+    .filter(
+      (entry) =>
+        entry.name &&
+        entry.supportedGenerationMethods?.includes("generateContent"),
+    )
     .map((entry) => entry.name!.replace(/^models\//, ""))
     .filter((name) => /^gemini-/i.test(name))
     .filter((name) => /flash/i.test(name))
     .filter((name) => /^gemini-\d+(?:\.\d+)?-flash(?:-preview)?$/i.test(name))
-    .filter((name) => !/embedding|aqa|robotics|image|tts|deep-research|latest|001/i.test(name))
+    .filter(
+      (name) =>
+        !/embedding|aqa|robotics|image|tts|deep-research|latest|001/i.test(
+          name,
+        ),
+    )
     .sort((left, right) => {
       const a = modelRank(left);
       const b = modelRank(right);
-      return a[0] - b[0] || a[2] - b[2] || b[3] - a[3] || a[4].localeCompare(b[4]);
+      return (
+        a[0] - b[0] || a[2] - b[2] || b[3] - a[3] || a[4].localeCompare(b[4])
+      );
     });
 }
 
-let cachedBossModelSelection: { expiresAt: number; selection: GeminiBossModelSelection } | null = null;
+let cachedBossModelSelection: {
+  expiresAt: number;
+  selection: GeminiBossModelSelection;
+} | null = null;
 
 type GeminiTextGenerationResult = {
   model: string;
@@ -365,13 +430,16 @@ export async function generateGeminiBossText(
 ): Promise<GeminiTextGenerationResult> {
   const key = selection.keyName ? process.env[selection.keyName] : undefined;
   if (!key) {
-    return { model: selection.model, raw: null, error: "The resolved Gemini Boss key is unavailable." };
+    return {
+      model: selection.model,
+      raw: null,
+      error: "The resolved Gemini Boss key is unavailable.",
+    };
   }
 
-  const models = [...new Set([
-    selection.model,
-    ...(selection.candidateModels ?? []),
-  ])];
+  const models = [
+    ...new Set([selection.model, ...(selection.candidateModels ?? [])]),
+  ];
   let lastError = `Gemini Boss ${selection.model} did not return text.`;
 
   for (const model of models) {
@@ -401,7 +469,10 @@ export async function generateGeminiBossText(
         const detail = (await response.text().catch(() => "")).slice(0, 300);
         lastError = `Gemini Boss ${model} HTTP ${response.status}${detail ? `: ${detail}` : ""}`;
         if (models.length > 1) {
-          logger.warn({ model, status: response.status }, "Gemini Boss model unavailable; trying lower model");
+          logger.warn(
+            { model, status: response.status },
+            "Gemini Boss model unavailable; trying lower model",
+          );
           continue;
         }
         continue;
@@ -415,14 +486,21 @@ export async function generateGeminiBossText(
         };
       }
 
-      const payload = await response.json() as {
+      const payload = (await response.json()) as {
         candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
       };
-      const raw = payload.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("").trim() ?? "";
+      const raw =
+        payload.candidates?.[0]?.content?.parts
+          ?.map((part) => part.text ?? "")
+          .join("")
+          .trim() ?? "";
       if (raw) return { model, raw, error: null };
       lastError = `Gemini Boss ${model} returned no text.`;
     } catch (error) {
-      lastError = error instanceof Error ? error.message : "Gemini Boss generation failed.";
+      lastError =
+        error instanceof Error
+          ? error.message
+          : "Gemini Boss generation failed.";
     }
   }
 
@@ -440,7 +518,9 @@ export async function getGeminiBossStatus(): Promise<GeminiBossStatus> {
   };
 }
 
-export async function resolveGeminiBossModel(preferredKeyName?: string): Promise<GeminiBossModelSelection> {
+export async function resolveGeminiBossModel(
+  preferredKeyName?: string,
+): Promise<GeminiBossModelSelection> {
   const entries = getGeminiKeyEntries();
   const keys = preferredKeyName
     ? [
@@ -456,17 +536,26 @@ export async function resolveGeminiBossModel(preferredKeyName?: string): Promise
       candidateCount: 0,
     };
   }
-  if (!preferredKeyName && cachedBossModelSelection && cachedBossModelSelection.expiresAt > Date.now()) {
+  if (
+    !preferredKeyName &&
+    cachedBossModelSelection &&
+    cachedBossModelSelection.expiresAt > Date.now()
+  ) {
     return cachedBossModelSelection.selection;
   }
 
   for (const entry of keys) {
     try {
-      const response = await fetch(`${GEMINI_MODELS_API}?key=${encodeURIComponent(entry.key)}`, {
-        headers: { Accept: "application/json" },
-      });
+      const response = await fetch(
+        `${GEMINI_MODELS_API}?key=${encodeURIComponent(entry.key)}`,
+        {
+          headers: { Accept: "application/json" },
+        },
+      );
       if (!response.ok) continue;
-      const payload = await response.json() as { models?: GeminiModelCatalogEntry[] };
+      const payload = (await response.json()) as {
+        models?: GeminiModelCatalogEntry[];
+      };
       const entries = Array.isArray(payload.models) ? payload.models : [];
       const candidates = chooseGeminiModelCandidates(entries);
       if (!candidates.length) continue;
@@ -479,7 +568,10 @@ export async function resolveGeminiBossModel(preferredKeyName?: string): Promise
         keyName: entry.name,
       };
       if (!preferredKeyName) {
-        cachedBossModelSelection = { expiresAt: Date.now() + 10 * 60 * 1000, selection };
+        cachedBossModelSelection = {
+          expiresAt: Date.now() + 10 * 60 * 1000,
+          selection,
+        };
       }
       return selection;
     } catch {
@@ -500,7 +592,12 @@ function extractJsonObject(value: string): string | null {
   const source = fenced || value.trim();
   const objectStart = source.indexOf("{");
   const arrayStart = source.indexOf("[");
-  const start = objectStart < 0 ? arrayStart : arrayStart < 0 ? objectStart : Math.min(objectStart, arrayStart);
+  const start =
+    objectStart < 0
+      ? arrayStart
+      : arrayStart < 0
+        ? objectStart
+        : Math.min(objectStart, arrayStart);
   if (start < 0) return null;
   const open = source[start];
   const close = open === "{" ? "}" : "]";
@@ -515,7 +612,13 @@ function parseBossDiscoveryResponse(raw: string): {
   uncertainties: string[];
 } {
   const json = extractJsonObject(raw);
-  if (!json) return { report: raw.trim(), candidates: [], nextDirections: [], uncertainties: [] };
+  if (!json)
+    return {
+      report: raw.trim(),
+      candidates: [],
+      nextDirections: [],
+      uncertainties: [],
+    };
   try {
     const parsed = JSON.parse(json) as Record<string, unknown>;
     const rawCandidates = Array.isArray(parsed.candidates)
@@ -524,24 +627,41 @@ function parseBossDiscoveryResponse(raw: string): {
         ? parsed.discoveredCandidates
         : [];
     const candidates = rawCandidates
-      .filter((value): value is Record<string, unknown> => Boolean(value) && typeof value === "object")
+      .filter(
+        (value): value is Record<string, unknown> =>
+          Boolean(value) && typeof value === "object",
+      )
       .map((candidate) => ({
         name: String(candidate.name ?? "").trim(),
         type: typeof candidate.type === "string" ? candidate.type : undefined,
-        relevance: typeof candidate.relevance === "string" ? candidate.relevance : undefined,
-        reachability: typeof candidate.reachability === "string" ? candidate.reachability : undefined,
+        relevance:
+          typeof candidate.relevance === "string"
+            ? candidate.relevance
+            : undefined,
+        reachability:
+          typeof candidate.reachability === "string"
+            ? candidate.reachability
+            : undefined,
         sourceUrls: Array.isArray(candidate.sourceUrls)
-          ? candidate.sourceUrls.filter((url): url is string => typeof url === "string" && /^https?:\/\//i.test(url)).slice(0, 8)
+          ? candidate.sourceUrls
+              .filter(
+                (url): url is string =>
+                  typeof url === "string" && /^https?:\/\//i.test(url),
+              )
+              .slice(0, 8)
           : undefined,
-        contactEvidence: parseDiscoveryContactEvidence(candidate.contactEvidence),
+        contactEvidence: parseDiscoveryContactEvidence(
+          candidate.contactEvidence,
+        ),
       }))
       .filter((candidate) => candidate.name.length >= 3)
       .slice(0, 30);
-    const report = typeof parsed.report === "string"
-      ? parsed.report
-      : typeof parsed.summary === "string"
-        ? parsed.summary
-        : raw.trim();
+    const report =
+      typeof parsed.report === "string"
+        ? parsed.report
+        : typeof parsed.summary === "string"
+          ? parsed.summary
+          : raw.trim();
     const nextDirections = Array.isArray(parsed.nextDirections)
       ? uniqueStrings(parsed.nextDirections, 12)
       : [];
@@ -550,34 +670,73 @@ function parseBossDiscoveryResponse(raw: string): {
       : [];
     return { report, candidates, nextDirections, uncertainties };
   } catch {
-    return { report: raw.trim(), candidates: [], nextDirections: [], uncertainties: [] };
+    return {
+      report: raw.trim(),
+      candidates: [],
+      nextDirections: [],
+      uncertainties: [],
+    };
   }
 }
 
-function parseDiscoveryContactEvidence(value: unknown): DiscoveryContactEvidence[] | undefined {
+function parseDiscoveryContactEvidence(
+  value: unknown,
+): DiscoveryContactEvidence[] | undefined {
   if (!Array.isArray(value)) return undefined;
   const validVectors = new Set<DiscoveryContactEvidence["vectorType"]>([
-    "email", "phone", "linkedin", "twitter", "instagram", "telegram", "website", "organization_contact", "other",
+    "email",
+    "phone",
+    "linkedin",
+    "twitter",
+    "instagram",
+    "telegram",
+    "website",
+    "organization_contact",
+    "other",
   ]);
   const evidence = value.flatMap((item) => {
     if (!item || typeof item !== "object") return [];
     const record = item as Record<string, unknown>;
-    const valueText = typeof record.value === "string" ? record.value.trim() : "";
-    const vectorType = typeof record.vectorType === "string" && validVectors.has(record.vectorType as DiscoveryContactEvidence["vectorType"])
-      ? record.vectorType as DiscoveryContactEvidence["vectorType"]
-      : "other";
+    const valueText =
+      typeof record.value === "string" ? record.value.trim() : "";
+    const vectorType =
+      typeof record.vectorType === "string" &&
+      validVectors.has(
+        record.vectorType as DiscoveryContactEvidence["vectorType"],
+      )
+        ? (record.vectorType as DiscoveryContactEvidence["vectorType"])
+        : "other";
     if (!valueText) return [];
-    return [{
-      vectorType,
-      value: valueText.slice(0, 500),
-      scope: record.scope === "person" || record.scope === "organization" ? record.scope : "unknown",
-      personName: typeof record.personName === "string" && record.personName.trim() ? record.personName.trim().slice(0, 200) : null,
-      role: typeof record.role === "string" && record.role.trim() ? record.role.trim().slice(0, 200) : null,
-      sourceUrls: Array.isArray(record.sourceUrls)
-        ? record.sourceUrls.filter((url): url is string => typeof url === "string" && /^https?:\/\//i.test(url)).slice(0, 8)
-        : [],
-      note: typeof record.note === "string" && record.note.trim() ? record.note.trim().slice(0, 500) : null,
-    } satisfies DiscoveryContactEvidence];
+    return [
+      {
+        vectorType,
+        value: valueText.slice(0, 500),
+        scope:
+          record.scope === "person" || record.scope === "organization"
+            ? record.scope
+            : "unknown",
+        personName:
+          typeof record.personName === "string" && record.personName.trim()
+            ? record.personName.trim().slice(0, 200)
+            : null,
+        role:
+          typeof record.role === "string" && record.role.trim()
+            ? record.role.trim().slice(0, 200)
+            : null,
+        sourceUrls: Array.isArray(record.sourceUrls)
+          ? record.sourceUrls
+              .filter(
+                (url): url is string =>
+                  typeof url === "string" && /^https?:\/\//i.test(url),
+              )
+              .slice(0, 8)
+          : [],
+        note:
+          typeof record.note === "string" && record.note.trim()
+            ? record.note.trim().slice(0, 500)
+            : null,
+      } satisfies DiscoveryContactEvidence,
+    ];
   });
   return evidence.length > 0 ? evidence.slice(0, 12) : undefined;
 }
@@ -614,9 +773,10 @@ export async function runGeminiBossDiscovery(input: {
       citations: [],
       nextDirections: [],
       uncertainties: [],
-      error: selection.status === "pending"
-        ? "No Gemini model is available because no Gemini key is configured."
-        : "Configured Gemini keys did not expose a usable Boss model.",
+      error:
+        selection.status === "pending"
+          ? "No Gemini model is available because no Gemini key is configured."
+          : "Configured Gemini keys did not expose a usable Boss model.",
     };
   }
 
@@ -671,7 +831,9 @@ Candidates are review-only. Never invent a name, wealth claim, relationship, con
         citations: [],
         nextDirections: [],
         uncertainties: [],
-        error: generated.error ?? "Gemini Boss returned no text for the discovery brief.",
+        error:
+          generated.error ??
+          "Gemini Boss returned no text for the discovery brief.",
       };
     }
     const parsed = parseBossDiscoveryResponse(generated.raw);
@@ -694,34 +856,69 @@ Candidates are review-only. Never invent a name, wealth claim, relationship, con
       citations: [],
       nextDirections: [],
       uncertainties: [],
-      error: error instanceof Error ? error.message : "Gemini Boss discovery failed.",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Gemini Boss discovery failed.",
     };
   }
 }
 
-function parseBossPlanResponse(raw: string, queuedActions: BureauAction[]): Omit<GeminiBossPlanResult, "status" | "model" | "error"> | null {
+function parseBossPlanResponse(
+  raw: string,
+  queuedActions: BureauAction[],
+): Omit<GeminiBossPlanResult, "status" | "model" | "error"> | null {
   const json = extractJsonObject(raw);
   if (!json) return null;
   try {
     const parsed = JSON.parse(json) as Record<string, unknown>;
-    const actionId = typeof parsed.actionId === "string" ? parsed.actionId.trim() : "";
+    const actionId =
+      typeof parsed.actionId === "string" ? parsed.actionId.trim() : "";
     const action = queuedActions.find((candidate) => candidate.id === actionId);
     if (!action) return null;
-    const decision = typeof parsed.decision === "string" ? parsed.decision.trim() : "";
-    const reason = typeof parsed.reason === "string" ? parsed.reason.trim() : "";
-    const investigatorPrompt = typeof parsed.investigatorPrompt === "string" ? parsed.investigatorPrompt.trim() : "";
+    const decision =
+      typeof parsed.decision === "string" ? parsed.decision.trim() : "";
+    const reason =
+      typeof parsed.reason === "string" ? parsed.reason.trim() : "";
+    const investigatorPrompt =
+      typeof parsed.investigatorPrompt === "string"
+        ? parsed.investigatorPrompt.trim()
+        : "";
     if (!decision || !reason || investigatorPrompt.length < 20) return null;
     const tools = Array.isArray(parsed.tools)
-      ? parsed.tools.filter((tool): tool is string => typeof tool === "string" && action.tools.includes(tool)).slice(0, 12)
+      ? parsed.tools
+          .filter(
+            (tool): tool is string =>
+              typeof tool === "string" && action.tools.includes(tool),
+          )
+          .slice(0, 12)
       : [];
     const restrictions = Array.isArray(parsed.restrictions)
-      ? parsed.restrictions.filter((value): value is string => typeof value === "string" && value.trim().length > 0).map((value) => value.trim()).slice(0, 12)
+      ? parsed.restrictions
+          .filter(
+            (value): value is string =>
+              typeof value === "string" && value.trim().length > 0,
+          )
+          .map((value) => value.trim())
+          .slice(0, 12)
       : [];
     const evidenceRequirements = Array.isArray(parsed.evidenceRequirements)
-      ? parsed.evidenceRequirements.filter((value): value is string => typeof value === "string" && value.trim().length > 0).map((value) => value.trim()).slice(0, 10)
+      ? parsed.evidenceRequirements
+          .filter(
+            (value): value is string =>
+              typeof value === "string" && value.trim().length > 0,
+          )
+          .map((value) => value.trim())
+          .slice(0, 10)
       : [];
-    if (tools.length === 0 || restrictions.length === 0 || evidenceRequirements.length === 0) return null;
-    const rawConfidence = typeof parsed.confidence === "number" ? parsed.confidence : null;
+    if (
+      tools.length === 0 ||
+      restrictions.length === 0 ||
+      evidenceRequirements.length === 0
+    )
+      return null;
+    const rawConfidence =
+      typeof parsed.confidence === "number" ? parsed.confidence : null;
     return {
       actionId: action.id,
       decision: decision.slice(0, 500),
@@ -729,8 +926,11 @@ function parseBossPlanResponse(raw: string, queuedActions: BureauAction[]): Omit
       investigatorPrompt: investigatorPrompt.slice(0, 4000),
       restrictions: restrictions.map((value) => value.slice(0, 300)),
       tools,
-      evidenceRequirements: evidenceRequirements.map((value) => value.slice(0, 300)),
-      confidence: rawConfidence === null ? null : Math.max(0, Math.min(1, rawConfidence)),
+      evidenceRequirements: evidenceRequirements.map((value) =>
+        value.slice(0, 300),
+      ),
+      confidence:
+        rawConfidence === null ? null : Math.max(0, Math.min(1, rawConfidence)),
     };
   } catch {
     return null;
@@ -744,15 +944,17 @@ function buildGeminiBossPlanPrompt(input: {
 }): string {
   const queuedActions = input.file.actionQueue
     .filter((action) => action.status === "queued")
-    .map(({ id, title, purpose, specialistId, tools, priority, rationale }) => ({
-      id,
-      title,
-      purpose,
-      specialistId,
-      tools,
-      priority,
-      rationale,
-    }));
+    .map(
+      ({ id, title, purpose, specialistId, tools, priority, rationale }) => ({
+        id,
+        title,
+        purpose,
+        specialistId,
+        tools,
+        priority,
+        rationale,
+      }),
+    );
   return `You are the Boss and Head Investigator of a public-record research Bureau.
 
 You are a text-only planning model. You have no web access and must not use or request Google Search grounding.
@@ -766,6 +968,9 @@ access controls, rate limits, paywalls, provider safeguards, or legal restrictio
 Do not invent names, relationships, URLs, contact data, or facts. Do not create or rename actions.
 
 Iteration: ${input.iteration}
+<master_contact_plan>
+${JSON.stringify(input.file.masterContactPlan, null, 2)}
+</master_contact_plan>
 <case_file>
 ${JSON.stringify(input.file, null, 2).slice(0, 100_000)}
 </case_file>
@@ -808,21 +1013,34 @@ export async function runGeminiBossPlan(input: {
     error,
   });
   if (selection.status !== "resolved") {
-    return unavailable(selection.status === "pending"
-      ? "No Gemini Boss model is available because no Gemini key is configured."
-      : "Configured Gemini keys did not expose a usable Boss text model.");
+    return unavailable(
+      selection.status === "pending"
+        ? "No Gemini Boss model is available because no Gemini key is configured."
+        : "Configured Gemini keys did not expose a usable Boss text model.",
+    );
   }
-  const queuedActions = input.file.actionQueue.filter((action) => action.status === "queued");
-  if (queuedActions.length === 0) return unavailable("The case file has no queued actions.");
+  const queuedActions = input.file.actionQueue.filter(
+    (action) => action.status === "queued",
+  );
+  if (queuedActions.length === 0)
+    return unavailable("The case file has no queued actions.");
   try {
-    const generated = await generateGeminiBossText(selection, buildGeminiBossPlanPrompt(input));
-    if (!generated.raw) return unavailable(generated.error ?? "Gemini Boss returned no text.");
+    const generated = await generateGeminiBossText(
+      selection,
+      buildGeminiBossPlanPrompt(input),
+    );
+    if (!generated.raw)
+      return unavailable(generated.error ?? "Gemini Boss returned no text.");
     const parsed = parseBossPlanResponse(generated.raw, queuedActions);
     return parsed
       ? { status: "completed", model: generated.model, ...parsed, error: null }
-      : unavailable("Gemini Boss returned an invalid or unsafe investigator plan.");
+      : unavailable(
+          "Gemini Boss returned an invalid or unsafe investigator plan.",
+        );
   } catch (error) {
-    return unavailable(error instanceof Error ? error.message : "Gemini Boss planning failed.");
+    return unavailable(
+      error instanceof Error ? error.message : "Gemini Boss planning failed.",
+    );
   }
 }
 
@@ -830,43 +1048,72 @@ const SPECIALISTS: BureauSpecialist[] = [
   {
     id: "identity",
     title: "Identity Investigator",
-    mission: "Resolve the exact person, company, aliases, jurisdiction, and target anchors.",
+    mission:
+      "Resolve the exact person, company, aliases, jurisdiction, and target anchors.",
     tools: ["identity-resolver", "registry-client", "llm-name-validator"],
     status: "ready",
   },
   {
     id: "structure",
     title: "Ownership & Structure Investigator",
-    mission: "Map operators, parent groups, directors, beneficial ownership, and named principals.",
-    tools: ["GLEIF", "OpenOwnership", "Companies House", "EDGAR", "OCCRP Aleph"],
+    mission:
+      "Map operators, parent groups, directors, beneficial ownership, and named principals.",
+    tools: [
+      "GLEIF",
+      "OpenOwnership",
+      "Companies House",
+      "EDGAR",
+      "OCCRP Aleph",
+    ],
     status: "ready",
   },
   {
     id: "web",
     title: "Open-Web Investigator",
-    mission: "Search official sites, press, biographies, venues, memberships, and public activity for useful leads.",
+    mission:
+      "Search official sites, press, biographies, venues, memberships, and public activity for useful leads.",
     tools: ["web-enricher", "Perplexity", "Tavily", "Exa"],
     status: "waiting_for_key",
   },
   {
     id: "footprint",
     title: "Digital Footprint Investigator",
-    mission: "Expand public usernames and web presence, then return leads tied to the target context.",
-    tools: ["Sherlock", "Maigret", "Holehe", "RDAP", "DNS", "certificate transparency"],
+    mission:
+      "Expand public usernames and web presence, then return leads tied to the target context.",
+    tools: [
+      "Sherlock",
+      "Maigret",
+      "Holehe",
+      "RDAP",
+      "DNS",
+      "certificate transparency",
+    ],
     status: "ready",
   },
   {
     id: "contact",
     title: "Contact Route Investigator",
-    mission: "Collect direct, executive, operator, intermediary, social, and organization routes without collapsing them.",
-    tools: ["contact-enrichment", "contact-attribution", "route-hierarchy", "graph-engine"],
+    mission:
+      "Collect direct, executive, operator, intermediary, social, and organization routes without collapsing them.",
+    tools: [
+      "contact-enrichment",
+      "contact-attribution",
+      "route-hierarchy",
+      "graph-engine",
+    ],
     status: "ready",
   },
   {
     id: "skeptic",
     title: "Contradiction Investigator",
-    mission: "Look for name collisions, stale pages, unrelated people, and evidence that weakens the current hypothesis.",
-    tools: ["exact-page validation", "source-reliability", "evidence-ledger", "MCTS"],
+    mission:
+      "Look for name collisions, stale pages, unrelated people, and evidence that weakens the current hypothesis.",
+    tools: [
+      "exact-page validation",
+      "source-reliability",
+      "evidence-ledger",
+      "MCTS",
+    ],
     status: "ready",
   },
 ];
@@ -877,7 +1124,75 @@ export const DEFAULT_DISCOVERY_OBJECTIVE =
 export const DEFAULT_DISCOVERY_MOTIVATION =
   "The founder has invested substantial personal time and money into a startup and wants practical paths to present the idea to real potential investors, not celebrity names or unreachable institutions.";
 
-export const DEFAULT_DISCOVERY_GEOGRAPHY = "Western countries, prioritizing realistic regional and professional access over fame.";
+export const DEFAULT_DISCOVERY_GEOGRAPHY =
+  "Western countries, prioritizing realistic regional and professional access over fame.";
+
+const MASTER_CONTACT_VECTOR_DEFINITIONS: Array<
+  Pick<MasterContactVector, "id" | "category" | "vector" | "purpose" | "tools">
+> = [
+  {
+    id: "identity-resolution",
+    category: "identity",
+    vector: "Exact identity and aliases",
+    purpose: "Resolve the person or organization before attributing any route.",
+    tools: ["identity-resolver", "llm-name-validator"],
+  },
+  {
+    id: "registry-entities",
+    category: "registry",
+    vector: "Official registries and filings",
+    purpose: "Check public company, director, ownership, and filing records.",
+    tools: ["registry-client", "GLEIF", "Companies House", "EDGAR"],
+  },
+  {
+    id: "domain-footprint",
+    category: "digital_footprint",
+    vector: "Domains and public usernames",
+    purpose:
+      "Expand only public domains and usernames tied to the resolved context.",
+    tools: ["RDAP", "DNS", "certificate transparency", "Sherlock", "Maigret"],
+  },
+  {
+    id: "official-public-route",
+    category: "public_route",
+    vector: "Official organization route",
+    purpose:
+      "Find a verified public business, executive, or organization route for human review.",
+    tools: ["web-enricher", "contact-attribution", "route-hierarchy"],
+  },
+  {
+    id: "relationship-paths",
+    category: "relationship",
+    vector: "Named operators and intermediaries",
+    purpose:
+      "Map public professional or portfolio relationships without inferring private access.",
+    tools: ["graph-engine", "OpenOwnership", "contact-attribution"],
+  },
+  {
+    id: "contradiction-review",
+    category: "contradiction",
+    vector: "Collision and stale-evidence review",
+    purpose:
+      "Challenge identity, attribution, freshness, and source-quality assumptions.",
+    tools: ["exact-page validation", "source-reliability", "evidence-ledger"],
+  },
+];
+
+export function buildMasterContactPlan(): MasterContactPlan {
+  return {
+    version: 1,
+    reviewOnly: true,
+    vectors: MASTER_CONTACT_VECTOR_DEFINITIONS.map((vector) => ({
+      ...vector,
+      status: "pending",
+      lastAttemptAt: null,
+      lastTools: [],
+      latencyMs: null,
+      costClass: null,
+      evidenceNote: null,
+    })),
+  };
+}
 
 export const DEFAULT_DISCOVERY_EXCLUSIONS = [
   "Do not invent people, companies, wealth, contact details, relationships, or source claims.",
@@ -893,7 +1208,9 @@ export function buildBossOpeningPrompt(input: {
   exclusions?: string[];
 }): string {
   const geography = input.geography?.trim() || DEFAULT_DISCOVERY_GEOGRAPHY;
-  const exclusions = input.exclusions?.length ? input.exclusions : DEFAULT_DISCOVERY_EXCLUSIONS;
+  const exclusions = input.exclusions?.length
+    ? input.exclusions
+    : DEFAULT_DISCOVERY_EXCLUSIONS;
   return `You are the Boss Investigator opening a new discovery-first public-web research case.
 
 Human mission:
@@ -942,14 +1259,19 @@ export function buildDiscoveryCaseFile(input: {
   const objective = input.objective.trim();
   const motivation = input.motivation.trim();
   const geography = input.geography?.trim() || DEFAULT_DISCOVERY_GEOGRAPHY;
-  const exclusions = input.exclusions?.filter((value) => value.trim()).map((value) => value.trim()).length
-    ? input.exclusions.filter((value) => value.trim()).map((value) => value.trim())
+  const exclusions = input.exclusions
+    ?.filter((value) => value.trim())
+    .map((value) => value.trim()).length
+    ? input.exclusions
+        .filter((value) => value.trim())
+        .map((value) => value.trim())
     : DEFAULT_DISCOVERY_EXCLUSIONS;
   return {
     version: 3,
     caseType: "discovery",
     humanBrief: { objective, motivation, geography, exclusions },
-    bossPremise: "Start broad. Discover realistic public-world investor routes before resolving any one target in depth.",
+    bossPremise:
+      "Start broad. Discover realistic public-world investor routes before resolving any one target in depth.",
     investigationRules: [
       "Public evidence only; preserve claim-level provenance.",
       "Wealth, relevance, identity, and practical access are separate questions.",
@@ -968,7 +1290,8 @@ export function buildDiscoveryCaseFile(input: {
     initialAction: {
       id: "broad-web-discovery",
       title: "Broad public-web discovery",
-      purpose: "Find realistic investor candidates and routes without assuming a target in advance.",
+      purpose:
+        "Find realistic investor candidates and routes without assuming a target in advance.",
       status: "waiting_for_provider",
     },
     initialResearch: {
@@ -992,24 +1315,40 @@ export function buildDiscoveryCaseFile(input: {
     },
     discoveredCandidates: [],
     humanDirectives: [],
-    decisionLog: [{
-      iteration: 0,
-      decision: "Open a discovery-first case and prepare the Boss broad research brief.",
-      reason: "The human request identifies a mission, not a validated target entity.",
-      createdAt: input.now ?? new Date().toISOString(),
-    }],
+    decisionLog: [
+      {
+        iteration: 0,
+        decision:
+          "Open a discovery-first case and prepare the Boss broad research brief.",
+        reason:
+          "The human request identifies a mission, not a validated target entity.",
+        createdAt: input.now ?? new Date().toISOString(),
+      },
+    ],
     lastUpdatedBy: "boss-brief-generator",
   };
 }
 
-export function parseDiscoveryCaseFile(value: string): DiscoveryCaseFile | null {
+export function parseDiscoveryCaseFile(
+  value: string,
+): DiscoveryCaseFile | null {
   try {
-    const parsed = JSON.parse(value) as Partial<DiscoveryCaseFile> & { version?: number };
-    if (parsed?.caseType !== "discovery" || (parsed.version !== 3 && parsed.version !== 2)) return null;
-    const reports = Array.isArray(parsed.investigatorReports) ? parsed.investigatorReports : [];
+    const parsed = JSON.parse(value) as Partial<DiscoveryCaseFile> & {
+      version?: number;
+    };
+    if (
+      parsed?.caseType !== "discovery" ||
+      (parsed.version !== 3 && parsed.version !== 2)
+    )
+      return null;
+    const reports = Array.isArray(parsed.investigatorReports)
+      ? parsed.investigatorReports
+      : [];
     const progress = parsed.currentProgress ?? {
       reportCount: reports.length,
-      completedLanes: reports.filter((report) => report.status === "completed").map((report) => report.lane),
+      completedLanes: reports
+        .filter((report) => report.status === "completed")
+        .map((report) => report.lane),
       openQuestions: [],
       lastReviewedBy: null,
       refreshedAt: null,
@@ -1027,20 +1366,35 @@ export function parseDiscoveryCaseFile(value: string): DiscoveryCaseFile | null 
 
 export function appendDiscoveryReport(
   file: DiscoveryCaseFile,
-  report: Omit<DiscoveryInvestigatorReport, "id" | "createdAt"> & { id?: string; createdAt?: string },
+  report: Omit<DiscoveryInvestigatorReport, "id" | "createdAt"> & {
+    id?: string;
+    createdAt?: string;
+  },
 ): DiscoveryCaseFile {
   const createdAt = report.createdAt ?? new Date().toISOString();
   const entry: DiscoveryInvestigatorReport = {
     ...report,
-    id: report.id ?? `${report.lane}-${report.iteration}-${Date.parse(createdAt) || Date.now()}`,
+    id:
+      report.id ??
+      `${report.lane}-${report.iteration}-${Date.parse(createdAt) || Date.now()}`,
     createdAt,
   };
   const reports = [...file.investigatorReports, entry].slice(-100);
-  const completedLanes = [...new Set(reports.filter((item) => item.status === "completed").map((item) => item.lane))];
-  const openQuestions = [...new Set([
-    ...file.currentProgress.openQuestions,
-    ...reports.flatMap((item) => item.nextQuestions),
-  ])].filter(Boolean).slice(-30);
+  const completedLanes = [
+    ...new Set(
+      reports
+        .filter((item) => item.status === "completed")
+        .map((item) => item.lane),
+    ),
+  ];
+  const openQuestions = [
+    ...new Set([
+      ...file.currentProgress.openQuestions,
+      ...reports.flatMap((item) => item.nextQuestions),
+    ]),
+  ]
+    .filter(Boolean)
+    .slice(-30);
   return {
     ...file,
     version: 3,
@@ -1056,16 +1410,22 @@ export function appendDiscoveryReport(
   };
 }
 
-export function buildDiscoveryProgressSnapshot(file: DiscoveryCaseFile): string {
-  return JSON.stringify({
-    mission: file.humanBrief,
-    premise: file.bossPremise,
-    rules: file.investigationRules,
-    candidates: file.discoveredCandidates,
-    progress: file.currentProgress,
-    investigatorReports: file.investigatorReports.slice(-30),
-    decisions: file.decisionLog.slice(-20),
-  }, null, 2).slice(0, 100_000);
+export function buildDiscoveryProgressSnapshot(
+  file: DiscoveryCaseFile,
+): string {
+  return JSON.stringify(
+    {
+      mission: file.humanBrief,
+      premise: file.bossPremise,
+      rules: file.investigationRules,
+      candidates: file.discoveredCandidates,
+      progress: file.currentProgress,
+      investigatorReports: file.investigatorReports.slice(-30),
+      decisions: file.decisionLog.slice(-20),
+    },
+    null,
+    2,
+  ).slice(0, 100_000);
 }
 
 function parseJson<T>(value: string | null | undefined, fallback: T): T {
@@ -1086,63 +1446,107 @@ function uniqueStrings(values: unknown[], limit = 20): string[] {
 }
 
 function domainsFromUrls(urls: unknown[]): string[] {
-  return uniqueStrings(urls.map((value) => {
-    if (typeof value !== "string") return null;
-    try {
-      return new URL(value).hostname.replace(/^www\./, "");
-    } catch {
-      return null;
-    }
-  }).filter(Boolean));
+  return uniqueStrings(
+    urls
+      .map((value) => {
+        if (typeof value !== "string") return null;
+        try {
+          return new URL(value).hostname.replace(/^www\./, "");
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean),
+  );
 }
 
-function contactTier(route: Record<string, unknown>): { tier: string; label: string; score: number } {
-  const relationship = String(route.relationship ?? route.scope ?? "").toLowerCase();
+function contactTier(route: Record<string, unknown>): {
+  tier: string;
+  label: string;
+  score: number;
+} {
+  const relationship = String(
+    route.relationship ?? route.scope ?? "",
+  ).toLowerCase();
   const tier = String(route.tier ?? "").toLowerCase();
   const value = String(route.value ?? "");
-  if (tier.includes("direct") || tier.includes("person") || relationship.includes("target_person")) {
+  if (
+    tier.includes("direct") ||
+    tier.includes("person") ||
+    relationship.includes("target_person")
+  ) {
     return { tier: "direct_person", label: "Direct person route", score: 100 };
   }
-  if (tier.includes("executive") || relationship.includes("executive") || relationship.includes("director")) {
+  if (
+    tier.includes("executive") ||
+    relationship.includes("executive") ||
+    relationship.includes("director")
+  ) {
     return { tier: "executive", label: "Named executive route", score: 82 };
   }
-  if (tier.includes("operator") || relationship.includes("operator") || relationship.includes("parent")) {
+  if (
+    tier.includes("operator") ||
+    relationship.includes("operator") ||
+    relationship.includes("parent")
+  ) {
     return { tier: "operator", label: "Operator / parent route", score: 70 };
   }
-  if (tier.includes("intermediary") || relationship.includes("friend") || relationship.includes("family") || relationship.includes("associate")) {
+  if (
+    tier.includes("intermediary") ||
+    relationship.includes("friend") ||
+    relationship.includes("family") ||
+    relationship.includes("associate")
+  ) {
     return { tier: "intermediary", label: "Intermediary route", score: 58 };
   }
-  if (/^(info|contact|office|press|hello|enquiries|sales|admin)@/i.test(value) || tier.includes("organization")) {
+  if (
+    /^(info|contact|office|press|hello|enquiries|sales|admin)@/i.test(value) ||
+    tier.includes("organization")
+  ) {
     return { tier: "organization", label: "Organization route", score: 38 };
   }
   return { tier: "context", label: "Contextual route", score: 24 };
 }
 
-function normalizeRoutes(metadata: Record<string, unknown>): BureauContactRoute[] {
+function normalizeRoutes(
+  metadata: Record<string, unknown>,
+): BureauContactRoute[] {
   const raw = metadata.routeHierarchy;
   if (!Array.isArray(raw)) return [];
   return raw
-    .filter((route): route is Record<string, unknown> => Boolean(route) && typeof route === "object")
+    .filter(
+      (route): route is Record<string, unknown> =>
+        Boolean(route) && typeof route === "object",
+    )
     .map((route, index) => {
-      const urls = uniqueStrings(Array.isArray(route.sourceUrls) ? route.sourceUrls : []);
+      const urls = uniqueStrings(
+        Array.isArray(route.sourceUrls) ? route.sourceUrls : [],
+      );
       const tier = contactTier(route);
-      const confidence = typeof route.score === "number" ? route.score : tier.score;
+      const confidence =
+        typeof route.score === "number" ? route.score : tier.score;
       return {
         rank: index + 1,
         tier: tier.tier,
         tierLabel: tier.label,
         value: String(route.value ?? ""),
         vectorType: String(route.vectorType ?? "route"),
-        personName: typeof route.personName === "string" ? route.personName : null,
+        personName:
+          typeof route.personName === "string" ? route.personName : null,
         role: typeof route.role === "string" ? route.role : null,
-        relationship: typeof route.relationship === "string" ? route.relationship : null,
+        relationship:
+          typeof route.relationship === "string" ? route.relationship : null,
         score: Math.max(0, Math.min(100, Math.round(confidence))),
         state: String(route.state ?? "review"),
         sourceUrls: urls,
         sourceDomains: uniqueStrings(
-          Array.isArray(route.sourceDomains) ? route.sourceDomains : domainsFromUrls(urls),
+          Array.isArray(route.sourceDomains)
+            ? route.sourceDomains
+            : domainsFromUrls(urls),
         ),
-        rationale: String(route.note ?? "Public route retained for human review."),
+        rationale: String(
+          route.note ?? "Public route retained for human review.",
+        ),
         humanReview: "use_judgment" as const,
       };
     })
@@ -1151,14 +1555,17 @@ function normalizeRoutes(metadata: Record<string, unknown>): BureauContactRoute[
     .slice(0, 40);
 }
 
-function buildActions(file: Omit<ResearchCaseFile, "actionQueue" | "nextBestAction">): BureauAction[] {
+function buildActions(
+  file: Omit<ResearchCaseFile, "actionQueue" | "nextBestAction">,
+): BureauAction[] {
   const actions: BureauAction[] = [];
   const { evidenceSummary, target } = file;
   if (evidenceSummary.discoveredPeople.length === 0) {
     actions.push({
       id: "discover-people",
       title: "Discover named people",
-      purpose: "Find principals, executives, operators, staff, and relevant public people tied to the target.",
+      purpose:
+        "Find principals, executives, operators, staff, and relevant public people tied to the target.",
       specialistId: "web",
       tools: ["web-enricher", "Perplexity", "Tavily", "Exa"],
       priority: 100,
@@ -1170,7 +1577,8 @@ function buildActions(file: Omit<ResearchCaseFile, "actionQueue" | "nextBestActi
     actions.push({
       id: "resolve-official-domains",
       title: "Resolve official domains",
-      purpose: "Identify the target's official site, operator site, parent group, and exact pages.",
+      purpose:
+        "Identify the target's official site, operator site, parent group, and exact pages.",
       specialistId: "structure",
       tools: ["domain-resolver", "RDAP", "DNS", "certificate transparency"],
       priority: 96,
@@ -1182,9 +1590,16 @@ function buildActions(file: Omit<ResearchCaseFile, "actionQueue" | "nextBestActi
     actions.push({
       id: "map-ownership-structure",
       title: "Map ownership and structure",
-      purpose: "Trace operators, parent groups, entities, directors, and beneficial-owner hypotheses.",
+      purpose:
+        "Trace operators, parent groups, entities, directors, and beneficial-owner hypotheses.",
       specialistId: "structure",
-      tools: ["GLEIF", "OpenOwnership", "Companies House", "EDGAR", "OCCRP Aleph"],
+      tools: [
+        "GLEIF",
+        "OpenOwnership",
+        "Companies House",
+        "EDGAR",
+        "OCCRP Aleph",
+      ],
       priority: 92,
       status: "queued",
       rationale: "Structure evidence is still sparse.",
@@ -1193,17 +1608,25 @@ function buildActions(file: Omit<ResearchCaseFile, "actionQueue" | "nextBestActi
   actions.push({
     id: "expand-contact-routes",
     title: "Expand the contact hierarchy",
-    purpose: "Search direct person, executive, operator, intermediary, social, and organization routes.",
+    purpose:
+      "Search direct person, executive, operator, intermediary, social, and organization routes.",
     specialistId: "contact",
-    tools: ["contact-enrichment", "contact-attribution", "graph-engine", "route-hierarchy"],
+    tools: [
+      "contact-enrichment",
+      "contact-attribution",
+      "graph-engine",
+      "route-hierarchy",
+    ],
     priority: evidenceSummary.discoveredPeople.length > 0 ? 98 : 80,
     status: "queued",
-    rationale: "Every candidate route is retained and ranked for the human operator.",
+    rationale:
+      "Every candidate route is retained and ranked for the human operator.",
   });
   actions.push({
     id: "run-digital-footprint",
     title: "Run digital footprint expansion",
-    purpose: "Search public usernames and cross-platform traces tied to the target context.",
+    purpose:
+      "Search public usernames and cross-platform traces tied to the target context.",
     specialistId: "footprint",
     tools: ["Sherlock", "Maigret", "Holehe"],
     priority: 72,
@@ -1213,49 +1636,78 @@ function buildActions(file: Omit<ResearchCaseFile, "actionQueue" | "nextBestActi
   actions.push({
     id: "challenge-case",
     title: "Challenge the leading hypothesis",
-    purpose: "Search for collisions, stale evidence, unrelated names, and contradictory source material.",
+    purpose:
+      "Search for collisions, stale evidence, unrelated names, and contradictory source material.",
     specialistId: "skeptic",
-    tools: ["exact-page validation", "source-reliability", "evidence-ledger", "MCTS"],
+    tools: [
+      "exact-page validation",
+      "source-reliability",
+      "evidence-ledger",
+      "MCTS",
+    ],
     priority: 64,
     status: "queued",
-    rationale: "The Head Investigator should actively test its own working theory.",
+    rationale:
+      "The Head Investigator should actively test its own working theory.",
   });
   return actions.sort((a, b) => b.priority - a.priority);
 }
 
 export function buildInitialCaseFile(entity: Entity): ResearchCaseFile {
   const metadata = parseJson<Record<string, unknown>>(entity.metadata, {});
-  const investigatorPlan = metadata.investigatorResearchPlan && typeof metadata.investigatorResearchPlan === "object"
-    ? metadata.investigatorResearchPlan as Record<string, unknown>
-    : {};
-  const adaptive = metadata.adaptiveResearchTrace && typeof metadata.adaptiveResearchTrace === "object"
-    ? metadata.adaptiveResearchTrace as Record<string, unknown>
-    : {};
+  const investigatorPlan =
+    metadata.investigatorResearchPlan &&
+    typeof metadata.investigatorResearchPlan === "object"
+      ? (metadata.investigatorResearchPlan as Record<string, unknown>)
+      : {};
+  const adaptive =
+    metadata.adaptiveResearchTrace &&
+    typeof metadata.adaptiveResearchTrace === "object"
+      ? (metadata.adaptiveResearchTrace as Record<string, unknown>)
+      : {};
   const sourceRegistries = parseJson<unknown[]>(entity.sourceRegistries, []);
   const knownResidences = parseJson<unknown[]>(entity.knownResidences, []);
   const discoveredPeople = uniqueStrings([
-    ...(Array.isArray(adaptive.discoveredPeople) ? adaptive.discoveredPeople : []),
-    ...(Array.isArray(investigatorPlan.namedPeople) ? investigatorPlan.namedPeople : []),
+    ...(Array.isArray(adaptive.discoveredPeople)
+      ? adaptive.discoveredPeople
+      : []),
+    ...(Array.isArray(investigatorPlan.namedPeople)
+      ? investigatorPlan.namedPeople
+      : []),
   ]);
   const relatedOrganizations = uniqueStrings([
-    ...(Array.isArray(adaptive.relatedOrganizations) ? adaptive.relatedOrganizations : []),
-    ...(Array.isArray(investigatorPlan.relatedOrganizations) ? investigatorPlan.relatedOrganizations : []),
+    ...(Array.isArray(adaptive.relatedOrganizations)
+      ? adaptive.relatedOrganizations
+      : []),
+    ...(Array.isArray(investigatorPlan.relatedOrganizations)
+      ? investigatorPlan.relatedOrganizations
+      : []),
   ]);
   const knownDomains = uniqueStrings([
     entity.personalWebsite,
-    ...(Array.isArray(adaptive.candidateDomains) ? adaptive.candidateDomains : []),
-    ...domainsFromUrls(Array.isArray(adaptive.citations) ? adaptive.citations : []),
+    ...(Array.isArray(adaptive.candidateDomains)
+      ? adaptive.candidateDomains
+      : []),
+    ...domainsFromUrls(
+      Array.isArray(adaptive.citations) ? adaptive.citations : [],
+    ),
   ]);
   const evidenceSummary = {
     sourceRegistries: uniqueStrings(sourceRegistries),
     discoveredPeople,
     relatedOrganizations,
-    evidenceCount: typeof adaptive.evidenceCount === "number" ? adaptive.evidenceCount : 0,
-    searchGaps: uniqueStrings(Array.isArray(adaptive.searchGaps) ? adaptive.searchGaps : []),
-    negativeFindings: uniqueStrings(Array.isArray(adaptive.negativeFindings) ? adaptive.negativeFindings : []),
+    evidenceCount:
+      typeof adaptive.evidenceCount === "number" ? adaptive.evidenceCount : 0,
+    searchGaps: uniqueStrings(
+      Array.isArray(adaptive.searchGaps) ? adaptive.searchGaps : [],
+    ),
+    negativeFindings: uniqueStrings(
+      Array.isArray(adaptive.negativeFindings) ? adaptive.negativeFindings : [],
+    ),
   };
   const base = {
     version: 1 as const,
+    masterContactPlan: buildMasterContactPlan(),
     target: {
       name: entity.name,
       type: entity.type,
@@ -1285,14 +1737,48 @@ export function buildInitialCaseFile(entity: Entity): ResearchCaseFile {
 export function parseCaseFile(value: string): ResearchCaseFile | null {
   try {
     const parsed = JSON.parse(value) as ResearchCaseFile;
-    return parsed && parsed.version === 1 ? parsed : null;
+    if (!parsed || parsed.version !== 1) return null;
+    if (!parsed.masterContactPlan?.vectors) {
+      parsed.masterContactPlan = buildMasterContactPlan();
+    }
+    return parsed;
   } catch {
     return null;
   }
 }
 
-export function advanceCaseFile(file: ResearchCaseFile, iteration: number, now = new Date().toISOString()): ResearchCaseFile {
-  const next = file.actionQueue.find((action) => action.status === "queued") ?? null;
+export function advanceCaseFile(
+  file: ResearchCaseFile,
+  iteration: number,
+  now = new Date().toISOString(),
+): ResearchCaseFile {
+  const pendingVectorIds = new Set(
+    file.masterContactPlan.vectors
+      .filter((vector) => vector.status === "pending")
+      .map((vector) => vector.id),
+  );
+  const next =
+    file.actionQueue
+      .filter((action) => action.status === "queued")
+      .sort((a, b) => {
+        const aBoost = a.tools.some((tool) =>
+          file.masterContactPlan.vectors.some(
+            (vector) =>
+              pendingVectorIds.has(vector.id) && vector.tools.includes(tool),
+          ),
+        )
+          ? 20
+          : 0;
+        const bBoost = b.tools.some((tool) =>
+          file.masterContactPlan.vectors.some(
+            (vector) =>
+              pendingVectorIds.has(vector.id) && vector.tools.includes(tool),
+          ),
+        )
+          ? 20
+          : 0;
+        return b.priority + bBoost - (a.priority + aBoost);
+      })[0] ?? null;
   const updatedQueue = file.actionQueue.map((action) =>
     action.id === next?.id ? { ...action, status: "active" as const } : action,
   );
@@ -1303,7 +1789,15 @@ export function advanceCaseFile(file: ResearchCaseFile, iteration: number, now =
     ...file,
     actionQueue: updatedQueue,
     nextBestAction: next ? { ...next, status: "active" } : null,
-    decisionLog: [...file.decisionLog, { iteration, decision, reason: next?.rationale ?? "Action queue exhausted.", createdAt: now }].slice(-50),
+    decisionLog: [
+      ...file.decisionLog,
+      {
+        iteration,
+        decision,
+        reason: next?.rationale ?? "Action queue exhausted.",
+        createdAt: now,
+      },
+    ].slice(-50),
     lastUpdatedBy: "boss-local-planner",
   };
 }

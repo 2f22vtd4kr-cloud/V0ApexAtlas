@@ -9,7 +9,28 @@ import {
   useRunResearch,
   useListResearchEvidence,
 } from "@workspace/api-client-react";
-import { Terminal, Play, Cpu, ChevronRight, Hash, CheckCircle2, GitBranch, Target, Shield, ChevronDown, Search, X, Mail, Phone, Copy, CheckCheck, Layers, ExternalLink, FileCheck2, CircleAlert } from "lucide-react";
+import {
+  Terminal,
+  Play,
+  Cpu,
+  ChevronRight,
+  Hash,
+  CheckCircle2,
+  GitBranch,
+  Target,
+  Shield,
+  ChevronDown,
+  Search,
+  X,
+  Mail,
+  Phone,
+  Copy,
+  CheckCheck,
+  Layers,
+  ExternalLink,
+  FileCheck2,
+  CircleAlert,
+} from "lucide-react";
 import { cn, formatEntityName } from "@/lib/utils";
 import { ScoreBadge } from "@/lib/utils";
 
@@ -123,7 +144,12 @@ type IntroPathCandidate = {
     personName: string | null;
     role: string | null;
   };
-  evidence: Array<{ source: string; sourceUrl: string; exactClaim: boolean; scope: string }>;
+  evidence: Array<{
+    source: string;
+    sourceUrl: string;
+    exactClaim: boolean;
+    scope: string;
+  }>;
   corroboration: { sourceDomains: string[]; independentDomains: number };
   whyItMayHelp: string;
   nextManualAction: string;
@@ -166,12 +192,36 @@ type BureauContactRoute = {
   humanReview: "use_judgment";
 };
 
+type MasterContactVector = {
+  id: string;
+  category: string;
+  vector: string;
+  purpose: string;
+  tools: string[];
+  status: "pending" | "attempted" | "blocked" | "not_applicable";
+  lastAttemptAt: string | null;
+  lastTools: string[];
+  latencyMs: number | null;
+  costClass: string | null;
+  evidenceNote: string | null;
+};
+
 type BureauCaseFile = {
+  masterContactPlan?: {
+    version: 1;
+    reviewOnly: true;
+    vectors: MasterContactVector[];
+  };
   specialistRoster: BureauSpecialist[];
   actionQueue: BureauAction[];
   contactRoutes: BureauContactRoute[];
   humanDirectives: string[];
-  decisionLog: Array<{ iteration: number; decision: string; reason: string; createdAt: string }>;
+  decisionLog: Array<{
+    iteration: number;
+    decision: string;
+    reason: string;
+    createdAt: string;
+  }>;
   rightHandAdvice?: {
     model: string;
     status: "completed" | "unavailable";
@@ -317,19 +367,23 @@ type DiscoveryCaseFile = {
   };
 };
 
-const HYBRID_PIPELINE = "L1: BM25+Semantic+Graph · L2: Planner→Retriever→Analyst→Critic · L3: QueryExpansion · L4: UCT(120 rollouts) · L5: Bayesian-UCB";
+const HYBRID_PIPELINE =
+  "L1: BM25+Semantic+Graph · L2: Planner→Retriever→Analyst→Critic · L3: QueryExpansion · L4: UCT(120 rollouts) · L5: Bayesian-UCB";
 
 function roleIcon(role: string) {
   if (role === "TARGET") return <Target className="w-3 h-3 text-primary" />;
-  if (role === "GATEKEEPER") return <Shield className="w-3 h-3 text-amber-500" />;
+  if (role === "GATEKEEPER")
+    return <Shield className="w-3 h-3 text-amber-500" />;
   if (role === "ASSET") return <GitBranch className="w-3 h-3 text-secondary" />;
   return <ChevronRight className="w-3 h-3 text-muted-foreground" />;
 }
 
 function roleColor(role: string) {
   if (role === "TARGET") return "border-primary/40 bg-primary/5 text-primary";
-  if (role === "GATEKEEPER") return "border-amber-500/40 bg-amber-500/5 text-amber-400";
-  if (role === "ASSET") return "border-secondary/30 bg-secondary/5 text-secondary";
+  if (role === "GATEKEEPER")
+    return "border-amber-500/40 bg-amber-500/5 text-amber-400";
+  if (role === "ASSET")
+    return "border-secondary/30 bg-secondary/5 text-secondary";
   return "border-border bg-muted/10 text-muted-foreground";
 }
 
@@ -345,7 +399,9 @@ function getActionColor(action: string) {
   return "text-secondary";
 }
 
-function parseBureauCaseFile(value: string | null | undefined): BureauCaseFile | null {
+function parseBureauCaseFile(
+  value: string | null | undefined,
+): BureauCaseFile | null {
   if (!value) return null;
   try {
     const parsed = JSON.parse(value) as BureauCaseFile;
@@ -355,7 +411,9 @@ function parseBureauCaseFile(value: string | null | undefined): BureauCaseFile |
   }
 }
 
-function parseDiscoveryCaseFile(value: string | null | undefined): DiscoveryCaseFile | null {
+function parseDiscoveryCaseFile(
+  value: string | null | undefined,
+): DiscoveryCaseFile | null {
   if (!value) return null;
   try {
     const parsed = JSON.parse(value) as DiscoveryCaseFile;
@@ -404,7 +462,12 @@ function BureauCasePanel({
         if (active) onCaseChange(next);
       })
       .catch((reason: unknown) => {
-        if (active) setError(reason instanceof Error ? reason.message : "Unable to load the bureau case");
+        if (active)
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : "Unable to load the bureau case",
+          );
       });
     return () => {
       active = false;
@@ -421,11 +484,14 @@ function BureauCasePanel({
         body: body ? JSON.stringify(body) : undefined,
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(payload?.error ?? "Bureau request failed");
+      if (!response.ok)
+        throw new Error(payload?.error ?? "Bureau request failed");
       onCaseChange(payload as BureauCase);
       return true;
     } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : "Bureau request failed");
+      setError(
+        reason instanceof Error ? reason.message : "Bureau request failed",
+      );
       return false;
     } finally {
       setBusy(false);
@@ -438,15 +504,21 @@ function BureauCasePanel({
       <div className="border-t border-border/50 bg-[#080C14] px-4 md:px-5 py-4 flex-shrink-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-xs font-mono text-primary uppercase tracking-widest">Boss Case Bureau</h3>
-            <p className="text-[11px] text-muted-foreground mt-1">The Boss leads the case; GLM serves as a bounded right-hand advisor.</p>
+            <h3 className="text-xs font-mono text-primary uppercase tracking-widest">
+              Boss Case Bureau
+            </h3>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              The Boss leads the case; GLM serves as a bounded right-hand
+              advisor.
+            </p>
           </div>
           <button
             disabled={busy}
             onClick={() => void request("/api/research/cases", { entityId })}
             className="inline-flex items-center justify-center gap-2 rounded border border-primary/50 bg-primary/15 px-3 py-2 text-[10px] font-mono uppercase tracking-wider text-primary hover:bg-primary/25 disabled:opacity-50"
           >
-            <Play className="w-3 h-3" /> {busy ? "Opening…" : "Open bureau case"}
+            <Play className="w-3 h-3" />{" "}
+            {busy ? "Opening…" : "Open bureau case"}
           </button>
         </div>
         {error && <div className="mt-2 text-[10px] text-rose-300">{error}</div>}
@@ -457,7 +529,9 @@ function BureauCasePanel({
   const nextAction = file?.nextBestAction;
   const roster = file?.specialistRoster ?? [];
   const routes = file?.contactRoutes ?? [];
-  const activeSpecialist = roster.find((specialist) => specialist.id === nextAction?.specialistId);
+  const activeSpecialist = roster.find(
+    (specialist) => specialist.id === nextAction?.specialistId,
+  );
 
   return (
     <div className="border-t border-border/50 bg-[#080C14] px-4 md:px-5 py-4 flex-shrink-0">
@@ -466,7 +540,9 @@ function BureauCasePanel({
           <h3 className="text-xs font-mono text-primary uppercase tracking-widest flex items-center gap-2">
             <Cpu className="w-3.5 h-3.5" /> Boss Case Bureau
           </h3>
-          <p className="text-[11px] text-muted-foreground mt-1 max-w-3xl">{bureauCase.objective}</p>
+          <p className="text-[11px] text-muted-foreground mt-1 max-w-3xl">
+            {bureauCase.objective}
+          </p>
         </div>
         <span className="text-[10px] font-mono text-muted-foreground whitespace-nowrap">
           iteration {bureauCase.iteration} · {bureauCase.status}
@@ -474,72 +550,178 @@ function BureauCasePanel({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-3">
+        <div className="rounded border border-primary/20 bg-background/25 p-3 lg:col-span-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] uppercase tracking-wider font-mono text-primary">
+              Master contact plan
+            </span>
+            <span className="text-[9px] font-mono text-muted-foreground">
+              review-only · public evidence
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 mt-2">
+            {(file?.masterContactPlan?.vectors ?? []).map((vector) => (
+              <div
+                key={vector.id}
+                className="rounded border border-border/50 bg-card/30 p-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-mono text-foreground">
+                    {vector.vector}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-[9px] font-mono uppercase",
+                      vector.status === "pending"
+                        ? "text-amber-300"
+                        : vector.status === "attempted"
+                          ? "text-emerald-300"
+                          : "text-muted-foreground",
+                    )}
+                  >
+                    {vector.status}
+                  </span>
+                </div>
+                <div className="text-[9px] text-muted-foreground mt-1 leading-snug">
+                  {vector.purpose}
+                </div>
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {vector.tools.slice(0, 4).map((tool) => (
+                    <span
+                      key={tool}
+                      className="rounded border border-border/50 px-1 py-0.5 text-[8px] font-mono text-muted-foreground"
+                    >
+                      {tool}
+                    </span>
+                  ))}
+                </div>
+                {vector.lastAttemptAt && (
+                  <div className="text-[8px] text-muted-foreground/70 mt-1">
+                    Last attempt:{" "}
+                    {new Date(vector.lastAttemptAt).toLocaleString()} ·{" "}
+                    {vector.latencyMs ?? "—"}ms
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
         <div className="rounded border border-primary/25 bg-primary/5 p-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] uppercase tracking-wider font-mono text-primary">Next best investigation action</span>
+            <span className="text-[10px] uppercase tracking-wider font-mono text-primary">
+              Next best investigation action
+            </span>
             <button
               disabled={busy}
-              onClick={() => void request(`/api/research/cases/${entityId}/advance`)}
+              onClick={() =>
+                void request(`/api/research/cases/${entityId}/advance`)
+              }
               className="inline-flex items-center gap-1 rounded border border-primary/40 px-2 py-1 text-[10px] font-mono text-primary hover:bg-primary/15 disabled:opacity-50"
             >
-              <ChevronRight className="w-3 h-3" /> {busy ? "Boss reviewing…" : "Ask Boss to advance"}
+              <ChevronRight className="w-3 h-3" />{" "}
+              {busy ? "Boss reviewing…" : "Ask Boss to advance"}
             </button>
           </div>
           {nextAction ? (
             <>
-              <div className="text-sm font-semibold text-foreground mt-2">{nextAction.title}</div>
-              <div className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{nextAction.purpose}</div>
+              <div className="text-sm font-semibold text-foreground mt-2">
+                {nextAction.title}
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                {nextAction.purpose}
+              </div>
               <div className="flex flex-wrap gap-1.5 mt-2">
                 <span className="rounded border border-border/60 px-1.5 py-0.5 text-[9px] font-mono text-amber-300">
                   {activeSpecialist?.title ?? nextAction.specialistId}
                 </span>
                 {nextAction.tools.slice(0, 5).map((tool) => (
-                  <span key={tool} className="rounded border border-border/60 px-1.5 py-0.5 text-[9px] font-mono text-muted-foreground">{tool}</span>
+                  <span
+                    key={tool}
+                    className="rounded border border-border/60 px-1.5 py-0.5 text-[9px] font-mono text-muted-foreground"
+                  >
+                    {tool}
+                  </span>
                 ))}
               </div>
-              <div className="text-[10px] text-muted-foreground/80 mt-2">Why now: {nextAction.rationale}</div>
+              <div className="text-[10px] text-muted-foreground/80 mt-2">
+                Why now: {nextAction.rationale}
+              </div>
             </>
           ) : (
-            <div className="text-xs text-muted-foreground mt-2">No queued action. Add a directive or ask the Boss for a new plan.</div>
+            <div className="text-xs text-muted-foreground mt-2">
+              No queued action. Add a directive or ask the Boss for a new plan.
+            </div>
           )}
         </div>
 
         <div className="rounded border border-amber-400/20 bg-amber-400/5 p-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] uppercase tracking-wider font-mono text-amber-300">Boss's right-hand advisor</span>
-            <span className="text-[9px] font-mono text-muted-foreground">advisory only</span>
+            <span className="text-[10px] uppercase tracking-wider font-mono text-amber-300">
+              Boss's right-hand advisor
+            </span>
+            <span className="text-[9px] font-mono text-muted-foreground">
+              advisory only
+            </span>
           </div>
           {file?.rightHandAdvice?.status === "completed" ? (
             <>
-              <div className="text-[10px] text-foreground mt-2">{file.rightHandAdvice.model} recommends <span className="text-amber-300">{file.rightHandAdvice.actionId}</span></div>
-              <div className="text-[10px] text-muted-foreground mt-1">{file.rightHandAdvice.reason}</div>
-              <div className="text-[9px] text-muted-foreground/70 mt-2">Boss remains authoritative and may choose a different action.</div>
+              <div className="text-[10px] text-foreground mt-2">
+                {file.rightHandAdvice.model} recommends{" "}
+                <span className="text-amber-300">
+                  {file.rightHandAdvice.actionId}
+                </span>
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-1">
+                {file.rightHandAdvice.reason}
+              </div>
+              <div className="text-[9px] text-muted-foreground/70 mt-2">
+                Boss remains authoritative and may choose a different action.
+              </div>
             </>
           ) : (
-            <div className="text-[10px] text-muted-foreground mt-2">No GLM recommendation recorded yet. The Boss can proceed with the local planning fallback.</div>
+            <div className="text-[10px] text-muted-foreground mt-2">
+              No GLM recommendation recorded yet. The Boss can proceed with the
+              local planning fallback.
+            </div>
           )}
         </div>
 
         <div className="rounded border border-primary/20 bg-primary/5 p-3 lg:col-span-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] uppercase tracking-wider font-mono text-primary">Gemini Boss plan</span>
-            <span className="text-[9px] font-mono text-muted-foreground">text-only · no web grounding</span>
+            <span className="text-[10px] uppercase tracking-wider font-mono text-primary">
+              Gemini Boss plan
+            </span>
+            <span className="text-[9px] font-mono text-muted-foreground">
+              text-only · no web grounding
+            </span>
           </div>
           {file?.bossPlan?.status === "completed" ? (
             <>
               <div className="text-[10px] text-foreground mt-2">
-                {file.bossPlan.model} assigned <span className="text-primary">{file.bossPlan.actionId}</span>
+                {file.bossPlan.model} assigned{" "}
+                <span className="text-primary">{file.bossPlan.actionId}</span>
               </div>
-              <div className="text-[10px] text-muted-foreground mt-1">{file.bossPlan.reason}</div>
+              <div className="text-[10px] text-muted-foreground mt-1">
+                {file.bossPlan.reason}
+              </div>
               {file.bossPlan.investigatorPrompt && (
                 <details className="mt-2">
-                  <summary className="cursor-pointer text-[9px] font-mono uppercase tracking-wider text-primary">Show investigator prompt</summary>
-                  <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border/50 bg-background/40 p-2 text-[9px] leading-relaxed text-muted-foreground">{file.bossPlan.investigatorPrompt}</pre>
+                  <summary className="cursor-pointer text-[9px] font-mono uppercase tracking-wider text-primary">
+                    Show investigator prompt
+                  </summary>
+                  <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border/50 bg-background/40 p-2 text-[9px] leading-relaxed text-muted-foreground">
+                    {file.bossPlan.investigatorPrompt}
+                  </pre>
                 </details>
               )}
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {file.bossPlan.tools.map((tool) => (
-                  <span key={tool} className="rounded border border-primary/25 px-1.5 py-0.5 text-[9px] font-mono text-primary">{tool}</span>
+                  <span
+                    key={tool}
+                    className="rounded border border-primary/25 px-1.5 py-0.5 text-[9px] font-mono text-primary"
+                  >
+                    {tool}
+                  </span>
                 ))}
               </div>
               <div className="mt-2 text-[9px] text-muted-foreground">
@@ -548,21 +730,38 @@ function BureauCasePanel({
             </>
           ) : (
             <div className="text-[10px] text-muted-foreground mt-2">
-              Gemini Boss has not produced a plan yet. The local Boss planner remains the safe fallback.
+              Gemini Boss has not produced a plan yet. The local Boss planner
+              remains the safe fallback.
             </div>
           )}
         </div>
 
         <div className="rounded border border-border/60 bg-background/30 p-3">
-          <div className="text-[10px] uppercase tracking-wider font-mono text-muted-foreground">Bureau roster</div>
+          <div className="text-[10px] uppercase tracking-wider font-mono text-muted-foreground">
+            Bureau roster
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-2">
             {roster.map((specialist) => (
-              <div key={specialist.id} className="rounded border border-border/50 bg-card/30 px-2 py-1.5">
+              <div
+                key={specialist.id}
+                className="rounded border border-border/50 bg-card/30 px-2 py-1.5"
+              >
                 <div className="flex items-center gap-1.5">
-                  <span className={cn("h-1.5 w-1.5 rounded-full", specialist.status === "ready" ? "bg-emerald-400" : "bg-amber-400")} />
-                  <span className="text-[10px] font-mono text-foreground">{specialist.title}</span>
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 rounded-full",
+                      specialist.status === "ready"
+                        ? "bg-emerald-400"
+                        : "bg-amber-400",
+                    )}
+                  />
+                  <span className="text-[10px] font-mono text-foreground">
+                    {specialist.title}
+                  </span>
                 </div>
-                <div className="text-[9px] text-muted-foreground mt-1 leading-snug">{specialist.mission}</div>
+                <div className="text-[9px] text-muted-foreground mt-1 leading-snug">
+                  {specialist.mission}
+                </div>
               </div>
             ))}
           </div>
@@ -571,8 +770,12 @@ function BureauCasePanel({
 
       <div className="mt-3 rounded border border-border/60 bg-background/25 p-3">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] uppercase tracking-wider font-mono text-amber-300">Human operator directive</span>
-          <span className="text-[9px] font-mono text-muted-foreground">stored in case context</span>
+          <span className="text-[10px] uppercase tracking-wider font-mono text-amber-300">
+            Human operator directive
+          </span>
+          <span className="text-[9px] font-mono text-muted-foreground">
+            stored in case context
+          </span>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 mt-2">
           <input
@@ -584,7 +787,10 @@ function BureauCasePanel({
           <button
             disabled={busy || !directive.trim()}
             onClick={async () => {
-              const sent = await request(`/api/research/cases/${entityId}/directive`, { directive: directive.trim() });
+              const sent = await request(
+                `/api/research/cases/${entityId}/directive`,
+                { directive: directive.trim() },
+              );
               if (sent) setDirective("");
             }}
             className="inline-flex items-center justify-center gap-1 rounded border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-[10px] font-mono uppercase tracking-wider text-amber-300 hover:bg-amber-400/20 disabled:opacity-50"
@@ -595,30 +801,61 @@ function BureauCasePanel({
       </div>
 
       <div className="flex flex-wrap gap-2 mt-3 text-[10px] font-mono text-muted-foreground">
-        <span className="rounded border border-border/60 px-2 py-1">people: {file?.evidenceSummary.discoveredPeople.length ?? 0}</span>
-        <span className="rounded border border-border/60 px-2 py-1">organizations: {file?.evidenceSummary.relatedOrganizations.length ?? 0}</span>
-        <span className="rounded border border-border/60 px-2 py-1">contact routes: {routes.length}</span>
-        <span className="rounded border border-border/60 px-2 py-1">evidence signals: {file?.evidenceSummary.evidenceCount ?? 0}</span>
+        <span className="rounded border border-border/60 px-2 py-1">
+          people: {file?.evidenceSummary.discoveredPeople.length ?? 0}
+        </span>
+        <span className="rounded border border-border/60 px-2 py-1">
+          organizations:{" "}
+          {file?.evidenceSummary.relatedOrganizations.length ?? 0}
+        </span>
+        <span className="rounded border border-border/60 px-2 py-1">
+          contact routes: {routes.length}
+        </span>
+        <span className="rounded border border-border/60 px-2 py-1">
+          evidence signals: {file?.evidenceSummary.evidenceCount ?? 0}
+        </span>
       </div>
       {routes.length > 0 && (
         <div className="mt-3">
-          <div className="text-[10px] uppercase tracking-wider font-mono text-primary mb-2">Contact hierarchy from the case file</div>
+          <div className="text-[10px] uppercase tracking-wider font-mono text-primary mb-2">
+            Contact hierarchy from the case file
+          </div>
           <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
             {routes.slice(0, 12).map((route) => (
-              <div key={`${route.rank}-${route.value}`} className="rounded border border-border/50 bg-background/30 px-2.5 py-2">
+              <div
+                key={`${route.rank}-${route.value}`}
+                className="rounded border border-border/50 bg-background/30 px-2.5 py-2"
+              >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-mono text-amber-300">#{route.rank}</span>
-                  <span className="text-[10px] uppercase tracking-wider text-primary">{route.tierLabel}</span>
-                  <span className="text-xs text-foreground break-all">{route.value}</span>
-                  <span className="text-[10px] font-mono text-muted-foreground ml-auto">{route.score}/100 · human review</span>
+                  <span className="text-[10px] font-mono text-amber-300">
+                    #{route.rank}
+                  </span>
+                  <span className="text-[10px] uppercase tracking-wider text-primary">
+                    {route.tierLabel}
+                  </span>
+                  <span className="text-xs text-foreground break-all">
+                    {route.value}
+                  </span>
+                  <span className="text-[10px] font-mono text-muted-foreground ml-auto">
+                    {route.score}/100 · human review
+                  </span>
                 </div>
                 <div className="text-[10px] text-muted-foreground mt-1">
-                  {route.personName ?? "No named person"}{route.role ? ` · ${route.role}` : ""} · {route.rationale}
+                  {route.personName ?? "No named person"}
+                  {route.role ? ` · ${route.role}` : ""} · {route.rationale}
                 </div>
                 {route.sourceUrls.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-1">
                     {route.sourceUrls.slice(0, 2).map((url) => (
-                      <a key={url} href={url} target="_blank" rel="noreferrer" className="text-[9px] text-primary hover:underline">{sourceDomain(url)}</a>
+                      <a
+                        key={url}
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[9px] text-primary hover:underline"
+                      >
+                        {sourceDomain(url)}
+                      </a>
                     ))}
                   </div>
                 )}
@@ -645,12 +882,16 @@ function DiscoveryBureauPanel({
 }) {
   const [objective, setObjective] = useState("");
   const [motivation, setMotivation] = useState("");
-  const [geography, setGeography] = useState("Western countries, prioritizing realistic regional and professional access over fame.");
+  const [geography, setGeography] = useState(
+    "Western countries, prioritizing realistic regional and professional access over fame.",
+  );
   const [researchResponse, setResearchResponse] = useState("");
   const [bossCommentary, setBossCommentary] = useState("");
   const [sourceUrls, setSourceUrls] = useState("");
   const [promotionEntityId, setPromotionEntityId] = useState("");
-  const [admissionCandidate, setAdmissionCandidate] = useState<string | null>(null);
+  const [admissionCandidate, setAdmissionCandidate] = useState<string | null>(
+    null,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const file = parseDiscoveryCaseFile(discoveryCase?.caseFile);
@@ -666,11 +907,16 @@ function DiscoveryBureauPanel({
         body: JSON.stringify(body),
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(payload?.error ?? "Discovery bureau request failed");
+      if (!response.ok)
+        throw new Error(payload?.error ?? "Discovery bureau request failed");
       onCaseChange(payload as BureauCase);
       return true;
     } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : "Discovery bureau request failed");
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Discovery bureau request failed",
+      );
       return false;
     } finally {
       setBusy(false);
@@ -686,7 +932,9 @@ function DiscoveryBureauPanel({
       } else {
         await runBureauCaseNextPass(discoveryCase!.id);
       }
-      const refreshed = await getBureauCase(discoveryCase!.id, { cache: "no-store" });
+      const refreshed = await getBureauCase(discoveryCase!.id, {
+        cache: "no-store",
+      });
       onCaseChange({
         ...refreshed,
         targetEntityName: refreshed.targetEntityName ?? null,
@@ -697,7 +945,11 @@ function DiscoveryBureauPanel({
       });
       return true;
     } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : "Discovery bureau request failed");
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Discovery bureau request failed",
+      );
       return false;
     } finally {
       setBusy(false);
@@ -712,10 +964,18 @@ function DiscoveryBureauPanel({
             <Cpu className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <div className="text-[10px] font-mono text-primary uppercase tracking-[0.18em]">Discovery-first Investigation Bureau</div>
-            <h2 className="text-base md:text-lg font-semibold text-foreground mt-1">Start with the mission, not a preselected target</h2>
+            <div className="text-[10px] font-mono text-primary uppercase tracking-[0.18em]">
+              Discovery-first Investigation Bureau
+            </div>
+            <h2 className="text-base md:text-lg font-semibold text-foreground mt-1">
+              Start with the mission, not a preselected target
+            </h2>
             <p className="text-[11px] text-muted-foreground mt-1 max-w-3xl leading-relaxed">
-              The Boss will turn your broad objective into the opening public-web research brief. When Gemini keys are available, the server inspects that key's model catalog and selects the lowest-cost suitable model; until then the choice remains automatic and pending.
+              The Boss will turn your broad objective into the opening
+              public-web research brief. When Gemini keys are available, the
+              server inspects that key's model catalog and selects the
+              lowest-cost suitable model; until then the choice remains
+              automatic and pending.
             </p>
           </div>
         </div>
@@ -748,10 +1008,17 @@ function DiscoveryBureauPanel({
           />
           <button
             disabled={busy || !objective.trim() || !motivation.trim()}
-            onClick={() => void request("/api/research/bureau/cases", { objective, motivation, geography })}
+            onClick={() =>
+              void request("/api/research/bureau/cases", {
+                objective,
+                motivation,
+                geography,
+              })
+            }
             className="inline-flex items-center justify-center gap-2 rounded border border-primary/50 bg-primary/15 px-4 py-2 text-[10px] font-mono uppercase tracking-wider text-primary hover:bg-primary/25 disabled:opacity-50"
           >
-            <Play className="w-3 h-3" /> {busy ? "Writing brief…" : "Open Boss case"}
+            <Play className="w-3 h-3" />{" "}
+            {busy ? "Writing brief…" : "Open Boss case"}
           </button>
         </div>
         {error && <div className="mt-2 text-[10px] text-rose-300">{error}</div>}
@@ -763,16 +1030,24 @@ function DiscoveryBureauPanel({
     <div className="border-b border-primary/20 bg-[#080C14] p-4 md:p-5 flex-shrink-0">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-[10px] font-mono text-primary uppercase tracking-[0.18em]">Boss discovery case #{discoveryCase.id}</div>
+          <div className="text-[10px] font-mono text-primary uppercase tracking-[0.18em]">
+            Boss discovery case #{discoveryCase.id}
+          </div>
           <h2 className="text-base font-semibold text-foreground mt-1">
             {file?.nextInvestigation?.boss?.status === "completed"
               ? "Case review complete — human gates remain"
               : "Gemini Boss opening brief"}
           </h2>
-          <p className="text-[11px] text-muted-foreground mt-1 max-w-3xl">{file?.bossPremise}</p>
+          <p className="text-[11px] text-muted-foreground mt-1 max-w-3xl">
+            {file?.bossPremise}
+          </p>
         </div>
         <div className="text-right text-[10px] font-mono text-muted-foreground">
-          <div className="text-amber-300">{discoveryCase.directorModel === "auto-low-cost-pending" ? "AUTO · LOWEST AVAILABLE" : discoveryCase.directorModel}</div>
+          <div className="text-amber-300">
+            {discoveryCase.directorModel === "auto-low-cost-pending"
+              ? "AUTO · LOWEST AVAILABLE"
+              : discoveryCase.directorModel}
+          </div>
           <div>
             {file?.nextInvestigation?.boss?.status === "completed"
               ? "gemini boss reviewed"
@@ -783,8 +1058,12 @@ function DiscoveryBureauPanel({
         </div>
       </div>
       <details className="mt-3 rounded border border-border/60 bg-background/25">
-        <summary className="cursor-pointer px-3 py-2 text-[10px] font-mono uppercase tracking-wider text-primary">View Boss opening prompt</summary>
-        <pre className="max-h-72 overflow-auto whitespace-pre-wrap border-t border-border/50 px-3 py-3 text-[10px] leading-relaxed text-muted-foreground">{discoveryCase.openingPrompt}</pre>
+        <summary className="cursor-pointer px-3 py-2 text-[10px] font-mono uppercase tracking-wider text-primary">
+          View Boss opening prompt
+        </summary>
+        <pre className="max-h-72 overflow-auto whitespace-pre-wrap border-t border-border/50 px-3 py-3 text-[10px] leading-relaxed text-muted-foreground">
+          {discoveryCase.openingPrompt}
+        </pre>
       </details>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
         <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
@@ -816,11 +1095,17 @@ function DiscoveryBureauPanel({
         <button
           disabled={busy || !researchResponse.trim()}
           onClick={async () => {
-            const saved = await request(`/api/research/bureau/cases/${discoveryCase.id}/initial-research`, {
-              researchResponse,
-              bossCommentary,
-              sourceUrls: sourceUrls.split(",").map((url) => url.trim()).filter(Boolean),
-            });
+            const saved = await request(
+              `/api/research/bureau/cases/${discoveryCase.id}/initial-research`,
+              {
+                researchResponse,
+                bossCommentary,
+                sourceUrls: sourceUrls
+                  .split(",")
+                  .map((url) => url.trim())
+                  .filter(Boolean),
+              },
+            );
             if (saved) {
               setResearchResponse("");
               setBossCommentary("");
@@ -829,156 +1114,304 @@ function DiscoveryBureauPanel({
           }}
           className="inline-flex items-center justify-center gap-2 rounded border border-amber-400/40 bg-amber-400/10 px-4 py-2 text-[10px] font-mono uppercase tracking-wider text-amber-300 hover:bg-amber-400/20 disabled:opacity-50"
         >
-          <CheckCircle2 className="w-3 h-3" /> {busy ? "Recording…" : "Write into case context"}
+          <CheckCircle2 className="w-3 h-3" />{" "}
+          {busy ? "Recording…" : "Write into case context"}
         </button>
       </div>
       {file && investigatorReports.length > 0 && (
         <div className="mt-3 rounded border border-cyan-400/20 bg-cyan-400/5 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <div className="text-[10px] uppercase tracking-wider font-mono text-cyan-300">Shared case-context shaft</div>
+              <div className="text-[10px] uppercase tracking-wider font-mono text-cyan-300">
+                Shared case-context shaft
+              </div>
               <div className="text-[10px] text-muted-foreground mt-1">
-                Each lane reads the latest snapshot, writes a report, and hands the refreshed context to the next reviewer.
+                Each lane reads the latest snapshot, writes a report, and hands
+                the refreshed context to the next reviewer.
               </div>
             </div>
             <div className="flex flex-wrap gap-1.5 text-[9px] font-mono">
-              <span className="rounded border border-cyan-400/25 px-1.5 py-0.5 text-cyan-300">{file.currentProgress?.reportCount ?? investigatorReports.length} reports</span>
-              <span className="rounded border border-border/60 px-1.5 py-0.5 text-muted-foreground">{file.currentProgress?.completedLanes?.length ?? 0} lanes complete</span>
-              <span className="rounded border border-border/60 px-1.5 py-0.5 text-muted-foreground">reviewed by {file.currentProgress?.lastReviewedBy ?? "pending"}</span>
+              <span className="rounded border border-cyan-400/25 px-1.5 py-0.5 text-cyan-300">
+                {file.currentProgress?.reportCount ??
+                  investigatorReports.length}{" "}
+                reports
+              </span>
+              <span className="rounded border border-border/60 px-1.5 py-0.5 text-muted-foreground">
+                {file.currentProgress?.completedLanes?.length ?? 0} lanes
+                complete
+              </span>
+              <span className="rounded border border-border/60 px-1.5 py-0.5 text-muted-foreground">
+                reviewed by {file.currentProgress?.lastReviewedBy ?? "pending"}
+              </span>
             </div>
           </div>
           <div className="mt-3 space-y-1.5 max-h-64 overflow-y-auto pr-1">
-            {investigatorReports.slice().reverse().map((report) => (
-              <details key={report.id} className="rounded border border-border/50 bg-background/40 px-2.5 py-2">
-                <summary className="cursor-pointer list-none">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={cn(
-                      "h-1.5 w-1.5 rounded-full",
-                      report.status === "completed" ? "bg-emerald-400" : report.status === "failed" ? "bg-rose-400" : "bg-amber-400",
-                    )} />
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-200">{report.lane}</span>
-                    <span className="text-[9px] text-muted-foreground">{report.provider}</span>
-                    <span className="ml-auto text-[9px] font-mono text-muted-foreground">iteration {report.iteration}</span>
+            {investigatorReports
+              .slice()
+              .reverse()
+              .map((report) => (
+                <details
+                  key={report.id}
+                  className="rounded border border-border/50 bg-background/40 px-2.5 py-2"
+                >
+                  <summary className="cursor-pointer list-none">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          report.status === "completed"
+                            ? "bg-emerald-400"
+                            : report.status === "failed"
+                              ? "bg-rose-400"
+                              : "bg-amber-400",
+                        )}
+                      />
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-200">
+                        {report.lane}
+                      </span>
+                      <span className="text-[9px] text-muted-foreground">
+                        {report.provider}
+                      </span>
+                      <span className="ml-auto text-[9px] font-mono text-muted-foreground">
+                        iteration {report.iteration}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-[10px] leading-relaxed text-foreground/85">
+                      {report.summary}
+                    </div>
+                  </summary>
+                  <div className="mt-2 border-t border-border/40 pt-2 space-y-2">
+                    {report.findings.length > 0 && (
+                      <div>
+                        <div className="text-[9px] uppercase tracking-wider font-mono text-muted-foreground">
+                          Findings
+                        </div>
+                        <ul className="mt-1 space-y-1 text-[10px] text-muted-foreground">
+                          {report.findings.slice(0, 8).map((finding, index) => (
+                            <li key={`${report.id}-finding-${index}`}>
+                              • {finding}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {report.candidateNames.length > 0 && (
+                      <div className="text-[10px] text-amber-200">
+                        Candidates: {report.candidateNames.join(" · ")}
+                      </div>
+                    )}
+                    {report.nextQuestions.length > 0 && (
+                      <div className="text-[10px] text-cyan-200/80">
+                        Next questions: {report.nextQuestions.join(" · ")}
+                      </div>
+                    )}
+                    {report.sourceUrls.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {report.sourceUrls.slice(0, 6).map((url) => (
+                          <a
+                            key={url}
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[9px] text-primary hover:underline"
+                          >
+                            {sourceDomain(url)}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                    {report.error && (
+                      <div className="text-[10px] text-rose-300">
+                        Provider gap: {report.error}
+                      </div>
+                    )}
                   </div>
-                  <div className="mt-1 text-[10px] leading-relaxed text-foreground/85">{report.summary}</div>
-                </summary>
-                <div className="mt-2 border-t border-border/40 pt-2 space-y-2">
-                  {report.findings.length > 0 && (
-                    <div>
-                      <div className="text-[9px] uppercase tracking-wider font-mono text-muted-foreground">Findings</div>
-                      <ul className="mt-1 space-y-1 text-[10px] text-muted-foreground">
-                        {report.findings.slice(0, 8).map((finding, index) => <li key={`${report.id}-finding-${index}`}>• {finding}</li>)}
-                      </ul>
-                    </div>
-                  )}
-                  {report.candidateNames.length > 0 && <div className="text-[10px] text-amber-200">Candidates: {report.candidateNames.join(" · ")}</div>}
-                  {report.nextQuestions.length > 0 && <div className="text-[10px] text-cyan-200/80">Next questions: {report.nextQuestions.join(" · ")}</div>}
-                  {report.sourceUrls.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {report.sourceUrls.slice(0, 6).map((url) => <a key={url} href={url} target="_blank" rel="noreferrer" className="text-[9px] text-primary hover:underline">{sourceDomain(url)}</a>)}
-                    </div>
-                  )}
-                  {report.error && <div className="text-[10px] text-rose-300">Provider gap: {report.error}</div>}
-                </div>
-              </details>
-            ))}
+                </details>
+              ))}
           </div>
-          {file.currentProgress?.openQuestions && file.currentProgress.openQuestions.length > 0 && (
-            <div className="mt-3 border-t border-border/40 pt-2">
-              <div className="text-[9px] uppercase tracking-wider font-mono text-muted-foreground">Open questions carried forward</div>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                {file.currentProgress.openQuestions.slice(-8).map((question) => (
-                  <span key={question} className="rounded border border-cyan-400/20 px-1.5 py-1 text-[9px] text-cyan-200/80">{question}</span>
-                ))}
+          {file.currentProgress?.openQuestions &&
+            file.currentProgress.openQuestions.length > 0 && (
+              <div className="mt-3 border-t border-border/40 pt-2">
+                <div className="text-[9px] uppercase tracking-wider font-mono text-muted-foreground">
+                  Open questions carried forward
+                </div>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {file.currentProgress.openQuestions
+                    .slice(-8)
+                    .map((question) => (
+                      <span
+                        key={question}
+                        className="rounded border border-cyan-400/20 px-1.5 py-1 text-[9px] text-cyan-200/80"
+                      >
+                        {question}
+                      </span>
+                    ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       )}
       {file?.discoveredCandidates?.length ? (
         <div className="mt-3 rounded border border-amber-400/20 bg-amber-400/5 p-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <div className="text-[10px] uppercase tracking-wider font-mono text-amber-300">Candidate and contact review ledger</div>
+              <div className="text-[10px] uppercase tracking-wider font-mono text-amber-300">
+                Candidate and contact review ledger
+              </div>
               <div className="text-[10px] text-muted-foreground mt-1">
-                Contact routes are shown only when an investigator returned an exact value with source evidence. Empty means no structured contact evidence was captured—not that the person is unreachable.
+                Contact routes are shown only when an investigator returned an
+                exact value with source evidence. Empty means no structured
+                contact evidence was captured—not that the person is
+                unreachable.
               </div>
             </div>
-            <span className="text-[9px] font-mono text-muted-foreground">{file.discoveredCandidates.length} review candidates</span>
+            <span className="text-[9px] font-mono text-muted-foreground">
+              {file.discoveredCandidates.length} review candidates
+            </span>
           </div>
           <div className="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-2 max-h-[34rem] overflow-y-auto pr-1">
             {file.discoveredCandidates.map((candidate) => {
               const contacts = candidate.contactEvidence ?? [];
               return (
-                <div key={candidate.name} className="rounded border border-border/60 bg-background/40 p-3">
+                <div
+                  key={candidate.name}
+                  className="rounded border border-border/60 bg-background/40 p-3"
+                >
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-semibold text-foreground">{candidate.name}</span>
-                        <span className="rounded border border-border/60 px-1.5 py-0.5 text-[9px] font-mono text-muted-foreground">{candidate.type}</span>
+                        <span className="text-xs font-semibold text-foreground">
+                          {candidate.name}
+                        </span>
+                        <span className="rounded border border-border/60 px-1.5 py-0.5 text-[9px] font-mono text-muted-foreground">
+                          {candidate.type}
+                        </span>
                         {candidate.admittedEntityId ? (
-                          <span className="rounded border border-emerald-400/30 px-1.5 py-0.5 text-[9px] font-mono text-emerald-300">admitted · entity {candidate.admittedEntityId}</span>
+                          <span className="rounded border border-emerald-400/30 px-1.5 py-0.5 text-[9px] font-mono text-emerald-300">
+                            admitted · entity {candidate.admittedEntityId}
+                          </span>
                         ) : null}
                       </div>
-                      <div className="mt-1 text-[10px] leading-relaxed text-muted-foreground">{candidate.relevance}</div>
+                      <div className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                        {candidate.relevance}
+                      </div>
                     </div>
                     {!candidate.admittedEntityId ? (
                       <button
                         disabled={busy || admissionCandidate === candidate.name}
                         onClick={async () => {
                           setAdmissionCandidate(candidate.name);
-                          const admitted = await request(`/api/research/bureau/cases/${discoveryCase.id}/admit-candidate`, {
-                            candidateName: candidate.name,
-                          });
+                          const admitted = await request(
+                            `/api/research/bureau/cases/${discoveryCase.id}/admit-candidate`,
+                            {
+                              candidateName: candidate.name,
+                            },
+                          );
                           if (admitted) setAdmissionCandidate(null);
                           else setAdmissionCandidate(null);
                         }}
                         className="shrink-0 rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-[9px] font-mono uppercase tracking-wider text-amber-300 hover:bg-amber-400/20 disabled:opacity-50"
                       >
-                        {admissionCandidate === candidate.name ? "Admitting…" : "Admit for review"}
+                        {admissionCandidate === candidate.name
+                          ? "Admitting…"
+                          : "Admit for review"}
                       </button>
                     ) : null}
                   </div>
                   <div className="mt-2 text-[10px] text-muted-foreground">
-                    <span className="text-foreground/80">Reachability:</span> {candidate.reachability}
+                    <span className="text-foreground/80">Reachability:</span>{" "}
+                    {candidate.reachability}
                   </div>
                   <div className="mt-2 rounded border border-border/50 bg-background/50 p-2">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[9px] uppercase tracking-wider font-mono text-cyan-300">Contact evidence</span>
-                      <span className={cn("text-[9px] font-mono", contacts.length ? "text-emerald-300" : "text-muted-foreground")}>
-                        {contacts.length ? `${contacts.length} route${contacts.length === 1 ? "" : "s"}` : "none structured"}
+                      <span className="text-[9px] uppercase tracking-wider font-mono text-cyan-300">
+                        Contact evidence
+                      </span>
+                      <span
+                        className={cn(
+                          "text-[9px] font-mono",
+                          contacts.length
+                            ? "text-emerald-300"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {contacts.length
+                          ? `${contacts.length} route${contacts.length === 1 ? "" : "s"}`
+                          : "none structured"}
                       </span>
                     </div>
                     {contacts.length ? (
                       <div className="mt-1.5 space-y-1.5">
                         {contacts.map((contact, index) => (
-                          <div key={`${candidate.name}-${contact.vectorType}-${contact.value}-${index}`} className="text-[10px]">
+                          <div
+                            key={`${candidate.name}-${contact.vectorType}-${contact.value}-${index}`}
+                            className="text-[10px]"
+                          >
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="text-primary uppercase font-mono">{contact.vectorType}</span>
-                              <span className="break-all text-foreground">{contact.value}</span>
-                              <span className="text-muted-foreground">· {contact.scope}</span>
-                              {contact.personName ? <span className="text-amber-200">· {contact.personName}</span> : null}
+                              <span className="text-primary uppercase font-mono">
+                                {contact.vectorType}
+                              </span>
+                              <span className="break-all text-foreground">
+                                {contact.value}
+                              </span>
+                              <span className="text-muted-foreground">
+                                · {contact.scope}
+                              </span>
+                              {contact.personName ? (
+                                <span className="text-amber-200">
+                                  · {contact.personName}
+                                </span>
+                              ) : null}
                             </div>
-                            {contact.role || contact.note ? <div className="text-muted-foreground mt-0.5">{[contact.role, contact.note].filter(Boolean).join(" · ")}</div> : null}
+                            {contact.role || contact.note ? (
+                              <div className="text-muted-foreground mt-0.5">
+                                {[contact.role, contact.note]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </div>
+                            ) : null}
                             {contact.sourceUrls.length ? (
                               <div className="flex flex-wrap gap-2 mt-1">
                                 {contact.sourceUrls.slice(0, 3).map((url) => (
-                                  <a key={url} href={url} target="_blank" rel="noreferrer" className="text-[9px] text-primary hover:underline">{sourceDomain(url)}</a>
+                                  <a
+                                    key={url}
+                                    href={url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[9px] text-primary hover:underline"
+                                  >
+                                    {sourceDomain(url)}
+                                  </a>
                                 ))}
                               </div>
-                            ) : <div className="text-[9px] text-rose-300">No source URL captured for this route</div>}
+                            ) : (
+                              <div className="text-[9px] text-rose-300">
+                                No source URL captured for this route
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="mt-1 text-[10px] text-muted-foreground">No structured email, phone, social, website, or organization contact was persisted for this candidate in the completed passes.</div>
+                      <div className="mt-1 text-[10px] text-muted-foreground">
+                        No structured email, phone, social, website, or
+                        organization contact was persisted for this candidate in
+                        the completed passes.
+                      </div>
                     )}
                   </div>
                   {candidate.sourceUrls.length ? (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {candidate.sourceUrls.slice(0, 4).map((url) => (
-                        <a key={url} href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[9px] text-primary hover:underline">
-                          <ExternalLink className="w-2.5 h-2.5" /> {sourceDomain(url)}
+                        <a
+                          key={url}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-[9px] text-primary hover:underline"
+                        >
+                          <ExternalLink className="w-2.5 h-2.5" />{" "}
+                          {sourceDomain(url)}
                         </a>
                       ))}
                     </div>
@@ -992,23 +1425,52 @@ function DiscoveryBureauPanel({
       {file?.nextInvestigation && (
         <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-3">
           <div className="rounded border border-amber-400/20 bg-amber-400/5 p-3">
-            <div className="text-[10px] uppercase tracking-wider font-mono text-amber-300">Right-hand review</div>
-            <div className="text-[10px] text-foreground mt-2">{file.nextInvestigation.rightHand?.decision ?? "No advisory decision returned."}</div>
-            {file.nextInvestigation.rightHand?.focusLanes?.length ? <div className="text-[9px] text-muted-foreground mt-1">Focus: {file.nextInvestigation.rightHand.focusLanes.join(" · ")}</div> : null}
-            {file.nextInvestigation.rightHand?.reason && <div className="text-[9px] text-muted-foreground mt-1">{file.nextInvestigation.rightHand.reason}</div>}
+            <div className="text-[10px] uppercase tracking-wider font-mono text-amber-300">
+              Right-hand review
+            </div>
+            <div className="text-[10px] text-foreground mt-2">
+              {file.nextInvestigation.rightHand?.decision ??
+                "No advisory decision returned."}
+            </div>
+            {file.nextInvestigation.rightHand?.focusLanes?.length ? (
+              <div className="text-[9px] text-muted-foreground mt-1">
+                Focus: {file.nextInvestigation.rightHand.focusLanes.join(" · ")}
+              </div>
+            ) : null}
+            {file.nextInvestigation.rightHand?.reason && (
+              <div className="text-[9px] text-muted-foreground mt-1">
+                {file.nextInvestigation.rightHand.reason}
+              </div>
+            )}
           </div>
           <div className="rounded border border-primary/20 bg-primary/5 p-3">
-            <div className="text-[10px] uppercase tracking-wider font-mono text-primary">Boss next rabbit hole</div>
-            <div className="text-[10px] text-foreground mt-2">{file.nextInvestigation.boss?.decision ?? "No final Boss review returned."}</div>
-            {file.nextInvestigation.boss?.nextDirections?.length ? <div className="text-[9px] text-primary/80 mt-1">Next: {file.nextInvestigation.boss.nextDirections.join(" · ")}</div> : null}
-            {file.nextInvestigation.boss?.uncertainties?.length ? <div className="text-[9px] text-muted-foreground mt-1">Uncertainties: {file.nextInvestigation.boss.uncertainties.join(" · ")}</div> : null}
+            <div className="text-[10px] uppercase tracking-wider font-mono text-primary">
+              Boss next rabbit hole
+            </div>
+            <div className="text-[10px] text-foreground mt-2">
+              {file.nextInvestigation.boss?.decision ??
+                "No final Boss review returned."}
+            </div>
+            {file.nextInvestigation.boss?.nextDirections?.length ? (
+              <div className="text-[9px] text-primary/80 mt-1">
+                Next: {file.nextInvestigation.boss.nextDirections.join(" · ")}
+              </div>
+            ) : null}
+            {file.nextInvestigation.boss?.uncertainties?.length ? (
+              <div className="text-[9px] text-muted-foreground mt-1">
+                Uncertainties:{" "}
+                {file.nextInvestigation.boss.uncertainties.join(" · ")}
+              </div>
+            ) : null}
           </div>
         </div>
       )}
       {file?.nextInvestigation?.boss?.nextDirections?.length ? (
         <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-3 rounded border border-primary/25 bg-primary/5 p-3">
           <div className="flex-1">
-            <div className="text-[10px] uppercase tracking-wider font-mono text-primary">Continue the Bureau investigation</div>
+            <div className="text-[10px] uppercase tracking-wider font-mono text-primary">
+              Continue the Bureau investigation
+            </div>
             <div className="text-[10px] text-muted-foreground mt-1">
               {file.nextInvestigation.boss?.status === "unavailable"
                 ? "The evidence lanes are complete, but the Boss closure review hit a provider gap. Retry only the Boss review without repeating searches."
@@ -1017,10 +1479,15 @@ function DiscoveryBureauPanel({
           </div>
           <button
             disabled={busy || discoveryCase.status === "active"}
-            onClick={() => void continueInvestigation(file.nextInvestigation?.boss?.status === "unavailable")}
+            onClick={() =>
+              void continueInvestigation(
+                file.nextInvestigation?.boss?.status === "unavailable",
+              )
+            }
             className="inline-flex items-center justify-center gap-2 rounded border border-primary/50 bg-primary/15 px-3 py-2 text-[10px] font-mono uppercase tracking-wider text-primary hover:bg-primary/25 disabled:opacity-50"
           >
-            <Play className="w-3 h-3" /> {busy || discoveryCase.status === "active"
+            <Play className="w-3 h-3" />{" "}
+            {busy || discoveryCase.status === "active"
               ? "Review running…"
               : file.nextInvestigation.boss?.status === "unavailable"
                 ? "Retry Boss closure review"
@@ -1031,9 +1498,13 @@ function DiscoveryBureauPanel({
       <div className="mt-3 rounded border border-emerald-400/20 bg-emerald-400/5 p-3">
         <div className="flex flex-col lg:flex-row lg:items-center gap-2">
           <div className="flex-1">
-            <div className="text-[10px] uppercase tracking-wider font-mono text-emerald-300">Reviewed candidate handoff</div>
+            <div className="text-[10px] uppercase tracking-wider font-mono text-emerald-300">
+              Reviewed candidate handoff
+            </div>
             <div className="text-[10px] text-muted-foreground mt-1">
-              Only promote an existing entity after the broad response has passed identity, attribution, provenance, and practical-reachability review.
+              Only promote an existing entity after the broad response has
+              passed identity, attribution, provenance, and
+              practical-reachability review.
             </div>
           </div>
           <select
@@ -1043,15 +1514,20 @@ function DiscoveryBureauPanel({
           >
             <option value="">Select reviewed entity…</option>
             {(entities ?? []).map((entity) => (
-              <option key={entity.id} value={entity.id}>{entity.name} · {entity.type ?? "Unknown"}</option>
+              <option key={entity.id} value={entity.id}>
+                {entity.name} · {entity.type ?? "Unknown"}
+              </option>
             ))}
           </select>
           <button
             disabled={busy || !promotionEntityId}
             onClick={async () => {
-              const promoted = await request(`/api/research/bureau/cases/${discoveryCase.id}/promote-target`, {
-                entityId: Number(promotionEntityId),
-              });
+              const promoted = await request(
+                `/api/research/bureau/cases/${discoveryCase.id}/promote-target`,
+                {
+                  entityId: Number(promotionEntityId),
+                },
+              );
               if (promoted) {
                 onPromote(Number(promotionEntityId));
                 setPromotionEntityId("");
@@ -1070,7 +1546,10 @@ function DiscoveryBureauPanel({
 
 function EvidenceLedger({ sessionId }: { sessionId: number | null }) {
   const { data, isLoading } = useListResearchEvidence(sessionId ?? 0, {
-    query: { enabled: sessionId != null, queryKey: getListResearchEvidenceQueryKey(sessionId ?? 0) },
+    query: {
+      enabled: sessionId != null,
+      queryKey: getListResearchEvidenceQueryKey(sessionId ?? 0),
+    },
   });
   const evidence = (data ?? []) as ResearchEvidence[];
   if (!sessionId) return null;
@@ -1081,12 +1560,19 @@ function EvidenceLedger({ sessionId }: { sessionId: number | null }) {
           <h3 className="text-xs font-mono text-primary uppercase tracking-widest flex items-center gap-2">
             <FileCheck2 className="w-4 h-4" /> Claim Evidence Ledger
           </h3>
-          <p className="text-[11px] text-muted-foreground mt-1">Every research assertion is shown with its current support level and source basis.</p>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Every research assertion is shown with its current support level and
+            source basis.
+          </p>
         </div>
-        <span className="text-[10px] font-mono text-muted-foreground">{isLoading ? "loading…" : `${evidence.length} claims`}</span>
+        <span className="text-[10px] font-mono text-muted-foreground">
+          {isLoading ? "loading…" : `${evidence.length} claims`}
+        </span>
       </div>
       {evidence.length === 0 && !isLoading ? (
-        <div className="rounded border border-dashed border-border p-3 text-xs text-muted-foreground font-mono">No claim-level evidence was recorded for this run.</div>
+        <div className="rounded border border-dashed border-border p-3 text-xs text-muted-foreground font-mono">
+          No claim-level evidence was recorded for this run.
+        </div>
       ) : (
         <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
           {evidence.map((item) => {
@@ -1101,27 +1587,96 @@ function EvidenceLedger({ sessionId }: { sessionId: number | null }) {
                   ? "text-slate-400"
                   : "text-amber-400";
             return (
-              <div key={item.id} className="rounded border border-border/70 bg-background/50 p-3">
+              <div
+                key={item.id}
+                className="rounded border border-border/70 bg-background/50 p-3"
+              >
                 <div className="flex items-start gap-2">
-                  {supported ? <FileCheck2 className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" /> : <CircleAlert className={cn("w-3.5 h-3.5 mt-0.5 shrink-0", disputed ? "text-rose-400" : rejected ? "text-slate-400" : "text-amber-400")} />}
+                  {supported ? (
+                    <FileCheck2 className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
+                  ) : (
+                    <CircleAlert
+                      className={cn(
+                        "w-3.5 h-3.5 mt-0.5 shrink-0",
+                        disputed
+                          ? "text-rose-400"
+                          : rejected
+                            ? "text-slate-400"
+                            : "text-amber-400",
+                      )}
+                    />
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[10px] uppercase tracking-wider font-mono text-muted-foreground">{item.claimType}</span>
-                      <span className={cn("text-[10px] uppercase tracking-wider font-mono", statusColor)}>{item.status}</span>
-                      <span className="text-[10px] font-mono text-muted-foreground">{Math.round(item.confidence * 100)}% confidence</span>
+                      <span className="text-[10px] uppercase tracking-wider font-mono text-muted-foreground">
+                        {item.claimType}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-[10px] uppercase tracking-wider font-mono",
+                          statusColor,
+                        )}
+                      >
+                        {item.status}
+                      </span>
+                      <span className="text-[10px] font-mono text-muted-foreground">
+                        {Math.round(item.confidence * 100)}% confidence
+                      </span>
                     </div>
-                    <p className="text-xs text-foreground/90 mt-1 leading-relaxed">{item.claim}</p>
+                    <p className="text-xs text-foreground/90 mt-1 leading-relaxed">
+                      {item.claim}
+                    </p>
                     <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[10px] font-mono text-muted-foreground">
                       <span>{item.sourceName ?? "Unattributed source"}</span>
                       <span>·</span>
-                      <span>{new Date(item.observedAt).toLocaleDateString()}</span>
-                      <span>·</span>
-                      <span className={item.freshnessScore >= 0.7 ? "text-emerald-400" : item.freshnessScore >= 0.35 ? "text-amber-400" : "text-rose-400"}>
-                        {item.freshnessScore >= 0.7 ? "current" : item.freshnessScore >= 0.35 ? "aging" : "stale"} evidence
+                      <span>
+                        {new Date(item.observedAt).toLocaleDateString()}
                       </span>
-                      {item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline"><ExternalLink className="w-3 h-3" /> source</a>}
+                      <span>·</span>
+                      <span
+                        className={
+                          item.freshnessScore >= 0.7
+                            ? "text-emerald-400"
+                            : item.freshnessScore >= 0.35
+                              ? "text-amber-400"
+                              : "text-rose-400"
+                        }
+                      >
+                        {item.freshnessScore >= 0.7
+                          ? "current"
+                          : item.freshnessScore >= 0.35
+                            ? "aging"
+                            : "stale"}{" "}
+                        evidence
+                      </span>
+                      {item.sourceUrl && (
+                        <a
+                          href={item.sourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-primary hover:underline"
+                        >
+                          <ExternalLink className="w-3 h-3" /> source
+                        </a>
+                      )}
                     </div>
-                    {item.rejectionReason && <p className={cn("text-[10px] mt-1", disputed ? "text-rose-400/80" : "text-muted-foreground")}>{disputed ? "Dispute: " : rejected ? "Rejected: " : "Review note: "}{item.rejectionReason}</p>}
+                    {item.rejectionReason && (
+                      <p
+                        className={cn(
+                          "text-[10px] mt-1",
+                          disputed
+                            ? "text-rose-400/80"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {disputed
+                          ? "Dispute: "
+                          : rejected
+                            ? "Rejected: "
+                            : "Review note: "}
+                        {item.rejectionReason}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1148,17 +1703,46 @@ function Scorecard({ score }: { score: ResearchScorecard | null }) {
     <div className="border-t border-border/50 bg-background/30 px-4 md:px-5 py-4">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-xs font-mono text-primary uppercase tracking-widest">Independent Research Scorecard</h3>
-          <p className="text-[11px] text-muted-foreground mt-1">Scores answer different questions; wealth is never used as an access proxy.</p>
+          <h3 className="text-xs font-mono text-primary uppercase tracking-widest">
+            Independent Research Scorecard
+          </h3>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Scores answer different questions; wealth is never used as an access
+            proxy.
+          </p>
         </div>
-        <span className="text-xs font-mono text-foreground">{Math.round(score.overall * 100)}/100 overall</span>
+        <span className="text-xs font-mono text-foreground">
+          {Math.round(score.overall * 100)}/100 overall
+        </span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
         {items.map(([label, value, hint]) => (
-          <div key={label} className="rounded border border-border/70 bg-card/50 p-2" title={hint}>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">{label}</div>
-            <div className={cn("text-lg font-mono mt-1", value >= 0.7 ? "text-emerald-400" : value >= 0.4 ? "text-amber-400" : "text-muted-foreground")}>{Math.round(value * 100)}</div>
-            <div className="h-1 rounded bg-muted mt-1 overflow-hidden"><div className="h-full bg-current rounded" style={{ width: `${Math.round(value * 100)}%` }} /></div>
+          <div
+            key={label}
+            className="rounded border border-border/70 bg-card/50 p-2"
+            title={hint}
+          >
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
+              {label}
+            </div>
+            <div
+              className={cn(
+                "text-lg font-mono mt-1",
+                value >= 0.7
+                  ? "text-emerald-400"
+                  : value >= 0.4
+                    ? "text-amber-400"
+                    : "text-muted-foreground",
+              )}
+            >
+              {Math.round(value * 100)}
+            </div>
+            <div className="h-1 rounded bg-muted mt-1 overflow-hidden">
+              <div
+                className="h-full bg-current rounded"
+                style={{ width: `${Math.round(value * 100)}%` }}
+              />
+            </div>
           </div>
         ))}
       </div>
@@ -1185,42 +1769,76 @@ function CandidateFunnelPanel({ funnel }: { funnel: CandidateFunnel | null }) {
             <CircleAlert className="w-3.5 h-3.5" /> Contact Candidate Funnel
           </h3>
           <p className="text-[11px] text-muted-foreground mt-1">
-            Provider repetition is not corroboration. Personal routes require target attribution and independent source domains.
+            Provider repetition is not corroboration. Personal routes require
+            target attribution and independent source domains.
           </p>
         </div>
         <span className="text-[10px] font-mono text-muted-foreground whitespace-nowrap">
-          {funnel.totalCandidates} candidates · {funnel.independentSourceDomains} domains
+          {funnel.totalCandidates} candidates ·{" "}
+          {funnel.independentSourceDomains} domains
         </span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 mb-3">
         {states.map(([label, value, color]) => (
-          <div key={label} className="rounded border border-border/60 bg-card/40 px-2 py-1.5">
-            <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-mono">{label}</div>
+          <div
+            key={label}
+            className="rounded border border-border/60 bg-card/40 px-2 py-1.5"
+          >
+            <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-mono">
+              {label}
+            </div>
             <div className={cn("text-lg font-mono mt-0.5", color)}>{value}</div>
           </div>
         ))}
       </div>
       <div className="flex flex-wrap gap-2 text-[10px] font-mono text-muted-foreground mb-2">
-        <span className="rounded border border-border/60 px-2 py-1">Organization-only: {funnel.organizationOnly}</span>
-        <span className={cn("rounded border px-2 py-1", funnel.conflicted ? "border-rose-400/30 text-rose-300" : "border-border/60")}>
+        <span className="rounded border border-border/60 px-2 py-1">
+          Organization-only: {funnel.organizationOnly}
+        </span>
+        <span
+          className={cn(
+            "rounded border px-2 py-1",
+            funnel.conflicted
+              ? "border-rose-400/30 text-rose-300"
+              : "border-border/60",
+          )}
+        >
           Conflicts: {funnel.conflicted}
         </span>
       </div>
       {funnel.candidates.length > 0 && (
         <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
           {funnel.candidates.map((candidate) => (
-            <div key={candidate.key} className="rounded border border-border/50 bg-background/40 px-2.5 py-2">
+            <div
+              key={candidate.key}
+              className="rounded border border-border/50 bg-background/40 px-2.5 py-2"
+            >
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] text-primary uppercase">{candidate.vectorType}</span>
-                <span className="text-xs text-foreground break-all">{candidate.value}</span>
-                <span className="text-[10px] text-muted-foreground ml-auto">{stateLabel(candidate.state)}</span>
-                {candidate.conflictCount > 0 && <span className="text-[10px] text-rose-300">conflict</span>}
-                {candidate.exactClaimObserved && <span className="text-[10px] text-emerald-300">exact claim</span>}
+                <span className="text-[10px] text-primary uppercase">
+                  {candidate.vectorType}
+                </span>
+                <span className="text-xs text-foreground break-all">
+                  {candidate.value}
+                </span>
+                <span className="text-[10px] text-muted-foreground ml-auto">
+                  {stateLabel(candidate.state)}
+                </span>
+                {candidate.conflictCount > 0 && (
+                  <span className="text-[10px] text-rose-300">conflict</span>
+                )}
+                {candidate.exactClaimObserved && (
+                  <span className="text-[10px] text-emerald-300">
+                    exact claim
+                  </span>
+                )}
               </div>
               <div className="text-[10px] font-mono text-muted-foreground mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
                 <span>{candidate.scopes.join(", ") || "unscoped"}</span>
                 <span>·</span>
-                <span>{candidate.sourceDomains.length} source domain{candidate.sourceDomains.length === 1 ? "" : "s"}</span>
+                <span>
+                  {candidate.sourceDomains.length} source domain
+                  {candidate.sourceDomains.length === 1 ? "" : "s"}
+                </span>
                 <span>·</span>
                 <span>{candidate.providers.join(", ")}</span>
               </div>
@@ -1237,7 +1855,11 @@ function CandidateFunnelPanel({ funnel }: { funnel: CandidateFunnel | null }) {
   );
 }
 
-function RouteHierarchyPanel({ routes }: { routes: RankedResearchRoute[] | null }) {
+function RouteHierarchyPanel({
+  routes,
+}: {
+  routes: RankedResearchRoute[] | null;
+}) {
   if (!routes || routes.length === 0) return null;
   return (
     <div className="border-t border-border/50 bg-[#0A0E17] px-4 md:px-5 py-4 flex-shrink-0">
@@ -1247,34 +1869,73 @@ function RouteHierarchyPanel({ routes }: { routes: RankedResearchRoute[] | null 
             <GitBranch className="w-3.5 h-3.5" /> Investigator Route Hierarchy
           </h3>
           <p className="text-[11px] text-muted-foreground mt-1">
-            Direct named-person routes lead the list. Operator, executive, intermediary, and organization routes remain available as manual paths.
+            Direct named-person routes lead the list. Operator, executive,
+            intermediary, and organization routes remain available as manual
+            paths.
           </p>
         </div>
-        <span className="text-[10px] font-mono text-muted-foreground whitespace-nowrap">{routes.length} ranked routes</span>
+        <span className="text-[10px] font-mono text-muted-foreground whitespace-nowrap">
+          {routes.length} ranked routes
+        </span>
       </div>
       <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
         {routes.slice(0, 12).map((route) => (
-          <div key={`${route.rank}-${route.vectorType}-${route.value}`} className="rounded border border-border/50 bg-background/40 px-2.5 py-2">
+          <div
+            key={`${route.rank}-${route.vectorType}-${route.value}`}
+            className="rounded border border-border/50 bg-background/40 px-2.5 py-2"
+          >
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-mono text-amber-300 w-5">#{route.rank}</span>
-              <span className="text-[10px] uppercase tracking-wider text-primary">{route.tierLabel}</span>
-              <span className="text-[10px] font-mono text-muted-foreground">{route.state.replaceAll("_", " ")}</span>
-              <span className="text-[10px] font-mono text-muted-foreground ml-auto">score {route.score}</span>
+              <span className="text-[10px] font-mono text-amber-300 w-5">
+                #{route.rank}
+              </span>
+              <span className="text-[10px] uppercase tracking-wider text-primary">
+                {route.tierLabel}
+              </span>
+              <span className="text-[10px] font-mono text-muted-foreground">
+                {route.state.replaceAll("_", " ")}
+              </span>
+              <span className="text-[10px] font-mono text-muted-foreground ml-auto">
+                score {route.score}
+              </span>
             </div>
             <div className="flex flex-wrap items-center gap-2 mt-1">
-              {route.vectorType === "email" ? <Mail className="w-3 h-3 text-primary" /> : route.vectorType === "phone" ? <Phone className="w-3 h-3 text-primary" /> : <ExternalLink className="w-3 h-3 text-primary" />}
-              <span className="text-xs text-foreground break-all">{route.value}</span>
-              {route.personName && <span className="text-xs text-amber-200">· {route.personName}</span>}
-              {route.role && <span className="text-[10px] text-muted-foreground">· {route.role.replaceAll("_", " ")}</span>}
+              {route.vectorType === "email" ? (
+                <Mail className="w-3 h-3 text-primary" />
+              ) : route.vectorType === "phone" ? (
+                <Phone className="w-3 h-3 text-primary" />
+              ) : (
+                <ExternalLink className="w-3 h-3 text-primary" />
+              )}
+              <span className="text-xs text-foreground break-all">
+                {route.value}
+              </span>
+              {route.personName && (
+                <span className="text-xs text-amber-200">
+                  · {route.personName}
+                </span>
+              )}
+              {route.role && (
+                <span className="text-[10px] text-muted-foreground">
+                  · {route.role.replaceAll("_", " ")}
+                </span>
+              )}
             </div>
             <div className="text-[10px] text-muted-foreground mt-1">
-              {route.relationship?.replaceAll("-", " ") ?? route.scope} · {route.note}
+              {route.relationship?.replaceAll("-", " ") ?? route.scope} ·{" "}
+              {route.note}
             </div>
             {route.sourceUrls.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-1.5">
                 {route.sourceUrls.slice(0, 3).map((url) => (
-                  <a key={url} href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline">
-                    <ExternalLink className="w-2.5 h-2.5" /> {new URL(url).hostname.replace(/^www\./, "")}
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
+                  >
+                    <ExternalLink className="w-2.5 h-2.5" />{" "}
+                    {new URL(url).hostname.replace(/^www\./, "")}
                   </a>
                 ))}
               </div>
@@ -1286,7 +1947,11 @@ function RouteHierarchyPanel({ routes }: { routes: RankedResearchRoute[] | null 
   );
 }
 
-function IntroPathPanel({ candidate }: { candidate: IntroPathCandidate | null }) {
+function IntroPathPanel({
+  candidate,
+}: {
+  candidate: IntroPathCandidate | null;
+}) {
   return (
     <div className="border-t border-border/50 bg-[#0B0F19] px-4 md:px-5 py-4 flex-shrink-0">
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -1295,10 +1960,13 @@ function IntroPathPanel({ candidate }: { candidate: IntroPathCandidate | null })
             <Shield className="w-3.5 h-3.5" /> Intro Path Candidate
           </h3>
           <p className="text-[11px] text-muted-foreground mt-1">
-            One bounded, review-only route from durable evidence. This is not verified contact or authorization.
+            One bounded, review-only route from durable evidence. This is not
+            verified contact or authorization.
           </p>
         </div>
-        <span className="text-[10px] font-mono text-amber-300/80 whitespace-nowrap">manual review</span>
+        <span className="text-[10px] font-mono text-amber-300/80 whitespace-nowrap">
+          manual review
+        </span>
       </div>
       {!candidate ? (
         <div className="rounded border border-dashed border-border p-3 text-xs text-muted-foreground font-mono">
@@ -1307,29 +1975,60 @@ function IntroPathPanel({ candidate }: { candidate: IntroPathCandidate | null })
       ) : (
         <div className="rounded border border-amber-400/30 bg-amber-400/5 p-3 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] uppercase tracking-wider font-mono text-amber-300">{candidate.routeKind.replaceAll("_", " ")}</span>
-            <span className="text-xs font-semibold text-foreground">{candidate.route.label}</span>
+            <span className="text-[10px] uppercase tracking-wider font-mono text-amber-300">
+              {candidate.routeKind.replaceAll("_", " ")}
+            </span>
+            <span className="text-xs font-semibold text-foreground">
+              {candidate.route.label}
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
-            {candidate.route.vectorType === "email" ? <Mail className="w-3 h-3 text-amber-300" /> : <Phone className="w-3 h-3 text-amber-300" />}
-            <span className="break-all text-foreground">{candidate.route.value}</span>
-            {candidate.route.personName && <span className="text-muted-foreground">· {candidate.route.personName}</span>}
-            {candidate.route.role && <span className="text-muted-foreground">· {candidate.route.role}</span>}
+            {candidate.route.vectorType === "email" ? (
+              <Mail className="w-3 h-3 text-amber-300" />
+            ) : (
+              <Phone className="w-3 h-3 text-amber-300" />
+            )}
+            <span className="break-all text-foreground">
+              {candidate.route.value}
+            </span>
+            {candidate.route.personName && (
+              <span className="text-muted-foreground">
+                · {candidate.route.personName}
+              </span>
+            )}
+            {candidate.route.role && (
+              <span className="text-muted-foreground">
+                · {candidate.route.role}
+              </span>
+            )}
           </div>
-          <p className="text-[11px] leading-relaxed text-muted-foreground">{candidate.whyItMayHelp}</p>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {candidate.whyItMayHelp}
+          </p>
           <div className="text-[11px] leading-relaxed text-amber-200/80">
             <strong>Next manual action:</strong> {candidate.nextManualAction}
           </div>
           <div className="flex flex-wrap gap-2 text-[10px] font-mono text-muted-foreground">
-            <span>{candidate.corroboration.independentDomains} source domain{candidate.corroboration.independentDomains === 1 ? "" : "s"}</span>
+            <span>
+              {candidate.corroboration.independentDomains} source domain
+              {candidate.corroboration.independentDomains === 1 ? "" : "s"}
+            </span>
             {candidate.evidence.map((item) => (
-              <a key={item.sourceUrl} href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+              <a
+                key={item.sourceUrl}
+                href={item.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-primary hover:underline"
+              >
                 <ExternalLink className="w-3 h-3" /> {item.source}
               </a>
             ))}
           </div>
           <ul className="space-y-1 text-[10px] text-rose-300/80">
-            {candidate.warnings.map((warning) => <li key={warning}>• {warning}</li>)}
+            {candidate.warnings.map((warning) => (
+              <li key={warning}>• {warning}</li>
+            ))}
           </ul>
         </div>
       )}
@@ -1339,7 +2038,8 @@ function IntroPathPanel({ candidate }: { candidate: IntroPathCandidate | null })
 
 // ── Path node contact bar ──────────────────────────────────────────────────────
 function PathNodeContact({ node }: { node: PathStep }) {
-  if (!node.contactConfidence && !node.contactEmail && !node.contactPhone) return null;
+  if (!node.contactConfidence && !node.contactEmail && !node.contactPhone)
+    return null;
   return (
     <div className="mt-2 pt-2 border-t border-current/20 flex flex-col gap-1">
       {node.contactConfidence != null && node.contactConfidence > 0 && (
@@ -1350,7 +2050,9 @@ function PathNodeContact({ node }: { node: PathStep }) {
               style={{ width: `${node.contactConfidence}%` }}
             />
           </div>
-          <span className="text-[10px] font-mono opacity-70">{node.contactConfidence}%</span>
+          <span className="text-[10px] font-mono opacity-70">
+            {node.contactConfidence}%
+          </span>
         </div>
       )}
       <div className="flex gap-2 flex-wrap">
@@ -1385,17 +2087,21 @@ export default function IntelTerminal() {
   useLocation(); // subscribe to route changes
   const urlEntityId = (() => {
     const params = new URLSearchParams(
-      typeof window !== "undefined" ? window.location.search : ""
+      typeof window !== "undefined" ? window.location.search : "",
     );
     const v = params.get("entity");
     return v ? parseInt(v, 10) : null;
   })();
 
-  const [selectedEntityId, setSelectedEntityId] = useState<number | null>(urlEntityId);
+  const [selectedEntityId, setSelectedEntityId] = useState<number | null>(
+    urlEntityId,
+  );
   const [entitySearch, setEntitySearch] = useState("");
   const { data: allEntities } = useListEntities({ limit: 500 });
-  const entities = allEntities?.filter((e) =>
-    !entitySearch || e.name.toLowerCase().includes(entitySearch.toLowerCase())
+  const entities = allEntities?.filter(
+    (e) =>
+      !entitySearch ||
+      e.name.toLowerCase().includes(entitySearch.toLowerCase()),
   );
   const runResearch = useRunResearch();
 
@@ -1404,11 +2110,19 @@ export default function IntelTerminal() {
   const [winningPath, setWinningPath] = useState<PathStep[]>([]);
   const [pathScore, setPathScore] = useState<number>(0);
   const [sessionId, setSessionId] = useState<number | null>(null);
-  const [algorithmPipeline, setAlgorithmPipeline] = useState<Array<{ algo: string; contribution: string; status: string }> | null>(null);
+  const [algorithmPipeline, setAlgorithmPipeline] = useState<Array<{
+    algo: string;
+    contribution: string;
+    status: string;
+  }> | null>(null);
   const [scorecard, setScorecard] = useState<ResearchScorecard | null>(null);
-  const [candidateFunnel, setCandidateFunnel] = useState<CandidateFunnel | null>(null);
-  const [routeHierarchy, setRouteHierarchy] = useState<RankedResearchRoute[] | null>(null);
-  const [introPathCandidate, setIntroPathCandidate] = useState<IntroPathCandidate | null>(null);
+  const [candidateFunnel, setCandidateFunnel] =
+    useState<CandidateFunnel | null>(null);
+  const [routeHierarchy, setRouteHierarchy] = useState<
+    RankedResearchRoute[] | null
+  >(null);
+  const [introPathCandidate, setIntroPathCandidate] =
+    useState<IntroPathCandidate | null>(null);
   const [bureauCase, setBureauCase] = useState<BureauCase | null>(null);
   const [discoveryCase, setDiscoveryCase] = useState<BureauCase | null>(null);
   const logEndRef = useRef<HTMLDivElement | null>(null);
@@ -1427,15 +2141,22 @@ export default function IntelTerminal() {
     }
     let active = true;
     fetch(`/api/entities/${selectedEntityId}`, { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : null)
+      .then((response) => (response.ok ? response.json() : null))
       .then((entity) => {
         if (!active) return;
         try {
-          const metadata = JSON.parse(entity?.metadata ?? "{}") as Record<string, unknown>;
-          setCandidateFunnel((metadata.deepWebCandidateFunnel as CandidateFunnel | null) ?? null);
-          setRouteHierarchy(Array.isArray(metadata.routeHierarchy)
-            ? metadata.routeHierarchy as RankedResearchRoute[]
-            : null);
+          const metadata = JSON.parse(entity?.metadata ?? "{}") as Record<
+            string,
+            unknown
+          >;
+          setCandidateFunnel(
+            (metadata.deepWebCandidateFunnel as CandidateFunnel | null) ?? null,
+          );
+          setRouteHierarchy(
+            Array.isArray(metadata.routeHierarchy)
+              ? (metadata.routeHierarchy as RankedResearchRoute[])
+              : null,
+          );
         } catch {
           setCandidateFunnel(null);
           setRouteHierarchy(null);
@@ -1448,7 +2169,7 @@ export default function IntelTerminal() {
         }
       });
     fetch(`/api/research/intro-path/${selectedEntityId}`, { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : null)
+      .then((response) => (response.ok ? response.json() : null))
       .then((payload) => {
         if (active) setIntroPathCandidate(payload?.candidate ?? null);
       })
@@ -1465,7 +2186,8 @@ export default function IntelTerminal() {
     fetch("/api/research/bureau/cases/latest", { cache: "no-store" })
       .then(async (response) => {
         if (response.status === 404) return null;
-        if (!response.ok) throw new Error("Unable to load the discovery bureau");
+        if (!response.ok)
+          throw new Error("Unable to load the discovery bureau");
         return response.json() as Promise<BureauCase>;
       })
       .then((next) => {
@@ -1502,14 +2224,29 @@ export default function IntelTerminal() {
           let steps: MctsStep[] = [];
           let path: PathStep[] = [];
 
-          try { steps = data.mctsSteps ? JSON.parse(data.mctsSteps) : []; } catch { steps = []; }
-          try { path = data.winningPath ? JSON.parse(data.winningPath) : []; } catch { path = []; }
+          try {
+            steps = data.mctsSteps ? JSON.parse(data.mctsSteps) : [];
+          } catch {
+            steps = [];
+          }
+          try {
+            path = data.winningPath ? JSON.parse(data.winningPath) : [];
+          } catch {
+            path = [];
+          }
 
           setPathScore(data.pathScore ?? 0);
-          try { setScorecard(data.scoreBreakdown ? JSON.parse(data.scoreBreakdown) : null); } catch { setScorecard(null); }
+          try {
+            setScorecard(
+              data.scoreBreakdown ? JSON.parse(data.scoreBreakdown) : null,
+            );
+          } catch {
+            setScorecard(null);
+          }
           setCandidateFunnel((data as any).candidateFunnel ?? null);
           setRouteHierarchy((data as any).routeHierarchy ?? null);
-          if ((data as any).algorithmPipeline) setAlgorithmPipeline((data as any).algorithmPipeline);
+          if ((data as any).algorithmPipeline)
+            setAlgorithmPipeline((data as any).algorithmPipeline);
 
           let i = 0;
           const interval = setInterval(() => {
@@ -1525,18 +2262,21 @@ export default function IntelTerminal() {
         },
         onError: () => {
           setIsComputing(false);
-          setTerminalLog([{
-            step: 0,
-            action: "CRITICAL FAILURE",
-            registry: "SYS",
-            target: "ERR",
-            targetType: "System",
-            uctScore: 0,
-            warmthScore: 0,
-            reasoning: "Intel pipeline returned an error. Check API server logs.",
-          }]);
+          setTerminalLog([
+            {
+              step: 0,
+              action: "CRITICAL FAILURE",
+              registry: "SYS",
+              target: "ERR",
+              targetType: "System",
+              uctScore: 0,
+              warmthScore: 0,
+              reasoning:
+                "Intel pipeline returned an error. Check API server logs.",
+            },
+          ]);
         },
-      }
+      },
     );
   };
 
@@ -1546,17 +2286,22 @@ export default function IntelTerminal() {
 
   return (
     <div className="flex h-full w-full bg-background overflow-hidden flex-col md:flex-row">
-
       {/* ── Mobile header: compact entity picker + run button ── */}
       <div className="md:hidden flex-shrink-0 border-b border-border bg-card/80 backdrop-blur p-3 space-y-2 z-20">
         <div className="flex items-center gap-2 mb-1">
           <Cpu className="w-3.5 h-3.5 text-primary" />
-          <span className="text-[10px] font-mono text-primary uppercase tracking-widest">Target Selection</span>
+          <span className="text-[10px] font-mono text-primary uppercase tracking-widest">
+            Target Selection
+          </span>
           {pathScore > 0 && (
-            <span className={cn(
-              "ml-auto text-[10px] font-mono px-2 py-0.5 rounded border",
-              pathScore >= 0.7 ? "text-primary border-primary/40 bg-primary/5" : "text-amber-500 border-amber-500/30 bg-amber-500/5"
-            )}>
+            <span
+              className={cn(
+                "ml-auto text-[10px] font-mono px-2 py-0.5 rounded border",
+                pathScore >= 0.7
+                  ? "text-primary border-primary/40 bg-primary/5"
+                  : "text-amber-500 border-amber-500/30 bg-amber-500/5",
+              )}
+            >
               PATH: {(pathScore * 100).toFixed(0)}/100
             </span>
           )}
@@ -1568,12 +2313,23 @@ export default function IntelTerminal() {
           disabled={isComputing}
           className="w-full flex items-center justify-between px-3 py-2.5 rounded border border-border bg-background text-sm font-mono text-foreground disabled:opacity-50"
         >
-          <span className={selectedEntityId ? "text-foreground" : "text-muted-foreground"}>
+          <span
+            className={
+              selectedEntityId ? "text-foreground" : "text-muted-foreground"
+            }
+          >
             {selectedEntity?.name ?? "Select an entity..."}
           </span>
           <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-            {selectedEntity && <ScoreBadge score={selectedEntity.bayesianScore} />}
-            <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", mobilePickerOpen && "rotate-180")} />
+            {selectedEntity && (
+              <ScoreBadge score={selectedEntity.bayesianScore} />
+            )}
+            <ChevronDown
+              className={cn(
+                "w-4 h-4 text-muted-foreground transition-transform",
+                mobilePickerOpen && "rotate-180",
+              )}
+            />
           </div>
         </button>
 
@@ -1583,13 +2339,18 @@ export default function IntelTerminal() {
             {entities?.map((ent) => (
               <button
                 key={ent.id}
-                onClick={() => { setSelectedEntityId(ent.id); setMobilePickerOpen(false); }}
+                onClick={() => {
+                  setSelectedEntityId(ent.id);
+                  setMobilePickerOpen(false);
+                }}
                 className={cn(
                   "w-full flex items-center justify-between px-3 py-2.5 text-sm font-mono border-b border-border last:border-0 hover:bg-muted/50 transition-colors text-left",
-                  selectedEntityId === ent.id && "bg-primary/10 text-primary"
+                  selectedEntityId === ent.id && "bg-primary/10 text-primary",
                 )}
               >
-                <span className="truncate pr-2">{formatEntityName(ent.name)}</span>
+                <span className="truncate pr-2">
+                  {formatEntityName(ent.name)}
+                </span>
                 <ScoreBadge score={ent.bayesianScore} />
               </button>
             ))}
@@ -1598,8 +2359,12 @@ export default function IntelTerminal() {
 
         {/* Hybrid pipeline */}
         <div className="bg-background/60 border border-border/60 rounded px-3 py-2">
-          <div className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest mb-1">Pipeline Architecture</div>
-          <div className="text-[11px] font-mono text-primary/80 leading-relaxed">{HYBRID_PIPELINE}</div>
+          <div className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest mb-1">
+            Pipeline Architecture
+          </div>
+          <div className="text-[11px] font-mono text-primary/80 leading-relaxed">
+            {HYBRID_PIPELINE}
+          </div>
         </div>
 
         {/* Run button */}
@@ -1622,7 +2387,8 @@ export default function IntelTerminal() {
         {sessionId && !isComputing && (
           <div className="text-[10px] font-mono text-sky-300 border border-sky-400/30 bg-sky-400/5 rounded px-2 py-1.5 text-center">
             <Shield className="w-3 h-3 inline mr-1.5 align-[-2px]" />
-            Evidence collected — identity, attribution, and access remain in research review
+            Evidence collected — identity, attribution, and access remain in
+            research review
           </div>
         )}
       </div>
@@ -1634,8 +2400,12 @@ export default function IntelTerminal() {
             <Cpu className="w-4 h-4 mr-2 text-primary" /> Target Selection
           </h2>
           <div className="bg-background/60 border border-border/60 rounded px-3 py-2">
-            <div className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest mb-1">5-Algorithm Pipeline</div>
-            <div className="text-[11px] font-mono text-primary/80 leading-relaxed">{HYBRID_PIPELINE}</div>
+            <div className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest mb-1">
+              5-Algorithm Pipeline
+            </div>
+            <div className="text-[11px] font-mono text-primary/80 leading-relaxed">
+              {HYBRID_PIPELINE}
+            </div>
           </div>
         </div>
 
@@ -1668,7 +2438,9 @@ export default function IntelTerminal() {
                 selectedEntityId === ent.id
                   ? "border-primary bg-primary/10 text-foreground"
                   : "border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-                isComputing && selectedEntityId !== ent.id && "opacity-30 cursor-not-allowed"
+                isComputing &&
+                  selectedEntityId !== ent.id &&
+                  "opacity-30 cursor-not-allowed",
               )}
             >
               <div className="truncate pr-2">{formatEntityName(ent.name)}</div>
@@ -1676,7 +2448,9 @@ export default function IntelTerminal() {
             </div>
           ))}
           {entities?.length === 0 && (
-            <div className="text-[10px] font-mono text-muted-foreground/50 text-center py-4">No matches</div>
+            <div className="text-[10px] font-mono text-muted-foreground/50 text-center py-4">
+              No matches
+            </div>
           )}
         </div>
 
@@ -1688,7 +2462,8 @@ export default function IntelTerminal() {
           >
             {isComputing ? (
               <span className="animate-pulse flex items-center">
-                <Hash className="w-4 h-4 mr-2 animate-spin" /> Running Pipeline...
+                <Hash className="w-4 h-4 mr-2 animate-spin" /> Running
+                Pipeline...
               </span>
             ) : (
               <span className="flex items-center">
@@ -1710,9 +2485,12 @@ export default function IntelTerminal() {
           <div className="flex items-center space-x-2 min-w-0">
             <Terminal className="w-4 h-4 flex-shrink-0" />
             <span className="truncate hidden sm:block">
-              root@apexfinder:~# /opt/intel/pipeline --target={selectedEntityId ?? "NULL"} --algos=5 --sims=120
+              root@apexfinder:~# /opt/intel/pipeline --target=
+              {selectedEntityId ?? "NULL"} --algos=5 --sims=120
             </span>
-            <span className="sm:hidden text-[10px]">INTEL --target={selectedEntityId ?? "NULL"}</span>
+            <span className="sm:hidden text-[10px]">
+              INTEL --target={selectedEntityId ?? "NULL"}
+            </span>
           </div>
           {pathScore > 0 && (
             <div
@@ -1720,7 +2498,7 @@ export default function IntelTerminal() {
                 "px-2 py-0.5 rounded border text-[10px] font-mono flex-shrink-0 ml-2",
                 pathScore >= 0.7
                   ? "text-primary border-primary/40 bg-primary/5"
-                  : "text-amber-500 border-amber-500/30 bg-amber-500/5"
+                  : "text-amber-500 border-amber-500/30 bg-amber-500/5",
               )}
             >
               {(pathScore * 100).toFixed(0)}/100
@@ -1732,23 +2510,55 @@ export default function IntelTerminal() {
           {terminalLog.length === 0 && !isComputing && (
             <div className="text-muted-foreground/50 h-full flex flex-col items-center justify-center space-y-3 select-none">
               <Terminal className="w-8 h-8 opacity-20" />
-              <span className="italic text-sm">Awaiting target selection...</span>
+              <span className="italic text-sm">
+                Awaiting target selection...
+              </span>
               <div className="text-[11px] text-center opacity-60 max-w-sm leading-relaxed">
-                5-layer hybrid architecture: L1 Hybrid Retrieval (BM25+Semantic+Graph) surfaces candidates · L2 Multi-Agent Reasoning (Planner→Retriever→Analyst→Critic) coordinates · L3 Query Expansion enriches the search · L4 UCT Deep Path Exploration (120 rollouts) finds the optimal warm-introduction route · L5 Bayesian-UCB tunes scoring and direction.
+                5-layer hybrid architecture: L1 Hybrid Retrieval
+                (BM25+Semantic+Graph) surfaces candidates · L2 Multi-Agent
+                Reasoning (Planner→Retriever→Analyst→Critic) coordinates · L3
+                Query Expansion enriches the search · L4 UCT Deep Path
+                Exploration (120 rollouts) finds the optimal warm-introduction
+                route · L5 Bayesian-UCB tunes scoring and direction.
               </div>
             </div>
           )}
 
           {terminalLog.map((log, i) => (
-            <div key={i} className="animate-in fade-in slide-in-from-bottom-1 duration-150">
+            <div
+              key={i}
+              className="animate-in fade-in slide-in-from-bottom-1 duration-150"
+            >
               <div className="flex items-start gap-x-2 overflow-x-auto pb-0.5 scrollbar-none">
-                <span className="text-blue-400 whitespace-nowrap flex-shrink-0">[{log.step.toString().padStart(4, "0")}]</span>
-                <span className={cn(getActionColor(log.action), "whitespace-nowrap flex-shrink-0")}>[{log.action}]</span>
-                <span className="text-purple-400 whitespace-nowrap flex-shrink-0">[{log.registry}]</span>
-                <span className="text-foreground whitespace-nowrap flex-shrink-0">{log.target}</span>
-                <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">({log.targetType})</span>
-                <span className="text-amber-500 whitespace-nowrap flex-shrink-0">UCT={log.uctScore.toFixed(3)}</span>
-                <span className={cn(getWarmthColor(log.warmthScore), "whitespace-nowrap flex-shrink-0")}>
+                <span className="text-blue-400 whitespace-nowrap flex-shrink-0">
+                  [{log.step.toString().padStart(4, "0")}]
+                </span>
+                <span
+                  className={cn(
+                    getActionColor(log.action),
+                    "whitespace-nowrap flex-shrink-0",
+                  )}
+                >
+                  [{log.action}]
+                </span>
+                <span className="text-purple-400 whitespace-nowrap flex-shrink-0">
+                  [{log.registry}]
+                </span>
+                <span className="text-foreground whitespace-nowrap flex-shrink-0">
+                  {log.target}
+                </span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
+                  ({log.targetType})
+                </span>
+                <span className="text-amber-500 whitespace-nowrap flex-shrink-0">
+                  UCT={log.uctScore.toFixed(3)}
+                </span>
+                <span
+                  className={cn(
+                    getWarmthColor(log.warmthScore),
+                    "whitespace-nowrap flex-shrink-0",
+                  )}
+                >
                   W={Math.round(log.warmthScore * 100)}%
                 </span>
               </div>
@@ -1764,7 +2574,11 @@ export default function IntelTerminal() {
             </div>
           )}
 
-          <div ref={(el) => { logEndRef.current = el; }} />
+          <div
+            ref={(el) => {
+              logEndRef.current = el;
+            }}
+          />
         </div>
 
         <DiscoveryBureauPanel
@@ -1782,15 +2596,26 @@ export default function IntelTerminal() {
           <div className="border-t border-border/50 bg-[#080C14] px-4 md:px-5 py-3 flex-shrink-0 animate-in slide-in-from-bottom-4">
             <div className="flex items-center gap-2 mb-2">
               <Layers className="w-3.5 h-3.5 text-primary/70" />
-              <span className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-widest">Algorithm Pipeline</span>
+              <span className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-widest">
+                Algorithm Pipeline
+              </span>
             </div>
             <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-2 flex-wrap">
               {algorithmPipeline.map((stage, i) => (
-                <div key={i} className="flex items-start gap-1.5 bg-muted/10 border border-border/40 rounded px-2 py-1.5 min-w-0 flex-1 sm:min-w-[140px]">
-                  <span className="text-[10px] font-mono text-muted-foreground/40 mt-0.5 flex-shrink-0">{String(i + 1).padStart(2, "0")}</span>
+                <div
+                  key={i}
+                  className="flex items-start gap-1.5 bg-muted/10 border border-border/40 rounded px-2 py-1.5 min-w-0 flex-1 sm:min-w-[140px]"
+                >
+                  <span className="text-[10px] font-mono text-muted-foreground/40 mt-0.5 flex-shrink-0">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
                   <div className="min-w-0">
-                    <div className="text-[10px] font-mono font-bold text-primary/80 truncate">{stage.algo}</div>
-                    <div className="text-[10px] font-mono text-muted-foreground/60 leading-snug mt-0.5">{stage.contribution}</div>
+                    <div className="text-[10px] font-mono font-bold text-primary/80 truncate">
+                      {stage.algo}
+                    </div>
+                    <div className="text-[10px] font-mono text-muted-foreground/60 leading-snug mt-0.5">
+                      {stage.contribution}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1823,16 +2648,27 @@ export default function IntelTerminal() {
             <div className="flex md:hidden flex-col space-y-2">
               {winningPath.map((node, i) => (
                 <div key={i}>
-                  <div className={cn("flex flex-col border p-3 rounded", roleColor(node.role))}>
+                  <div
+                    className={cn(
+                      "flex flex-col border p-3 rounded",
+                      roleColor(node.role),
+                    )}
+                  >
                     <div className="flex items-center mb-1.5 space-x-1">
                       {roleIcon(node.role)}
-                      <span className="text-[10px] font-mono uppercase tracking-widest opacity-60">{node.role}</span>
+                      <span className="text-[10px] font-mono uppercase tracking-widest opacity-60">
+                        {node.role}
+                      </span>
                     </div>
-                    <div className="font-bold text-foreground text-sm leading-tight mb-1">{node.label}</div>
+                    <div className="font-bold text-foreground text-sm leading-tight mb-1">
+                      {node.label}
+                    </div>
                     <div className="text-xs opacity-50">{node.nodeType}</div>
                     <PathNodeContact node={node} />
                     {node.actionRequired && (
-                      <div className="mt-2 text-xs leading-snug opacity-75 border-t border-current/20 pt-1.5">{node.actionRequired}</div>
+                      <div className="mt-2 text-xs leading-snug opacity-75 border-t border-current/20 pt-1.5">
+                        {node.actionRequired}
+                      </div>
                     )}
                   </div>
                   {i < winningPath.length - 1 && (
@@ -1849,16 +2685,27 @@ export default function IntelTerminal() {
               <div className="flex items-start overflow-x-auto pb-3 space-x-3 scrollbar-none">
                 {winningPath.map((node, i) => (
                   <div key={i} className="flex items-center flex-shrink-0">
-                    <div className={cn("flex flex-col border p-3 rounded min-w-[180px] max-w-[240px]", roleColor(node.role))}>
+                    <div
+                      className={cn(
+                        "flex flex-col border p-3 rounded min-w-[180px] max-w-[240px]",
+                        roleColor(node.role),
+                      )}
+                    >
                       <div className="flex items-center mb-1.5 space-x-1">
                         {roleIcon(node.role)}
-                        <span className="text-[10px] font-mono uppercase tracking-widest opacity-60">{node.role}</span>
+                        <span className="text-[10px] font-mono uppercase tracking-widest opacity-60">
+                          {node.role}
+                        </span>
                       </div>
-                      <div className="font-bold text-foreground text-sm leading-tight mb-1">{node.label}</div>
+                      <div className="font-bold text-foreground text-sm leading-tight mb-1">
+                        {node.label}
+                      </div>
                       <div className="text-xs opacity-50">{node.nodeType}</div>
                       <PathNodeContact node={node} />
                       {node.actionRequired && (
-                        <div className="mt-2 text-xs leading-snug opacity-75 border-t border-current/20 pt-1.5">{node.actionRequired}</div>
+                        <div className="mt-2 text-xs leading-snug opacity-75 border-t border-current/20 pt-1.5">
+                          {node.actionRequired}
+                        </div>
                       )}
                     </div>
                     {i < winningPath.length - 1 && (
