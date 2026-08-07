@@ -1,0 +1,6 @@
+{
+  "framework": "vite",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter @workspace/apex-finder build",
+  "outputDirectory": "artifacts/apex-finder/dist/public"
+}
