@@ -46,7 +46,9 @@ type ChatCompletionResponse = {
 };
 
 function getNvidiaNimKey(): string | null {
-  const key = process.env.NVIDIA_NIM_API_KEY?.trim();
+  const key = (
+    process.env.NVIDIA_NIM_API_KEY ?? process.env.NVIDIA_API_KEY
+  )?.trim();
   return key || null;
 }
 
