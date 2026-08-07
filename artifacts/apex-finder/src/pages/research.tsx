@@ -278,6 +278,18 @@ type BureauCase = {
   updatedAt: string;
 };
 
+type BureauCaseEvent = {
+  id: number;
+  caseId: number;
+  iteration: number;
+  actorRole: string;
+  eventType: string;
+  status: string;
+  summary: string;
+  payload: string;
+  createdAt: string;
+};
+
 type DiscoveryCaseFile = {
   caseType: "discovery";
   humanBrief: {
@@ -344,6 +356,23 @@ type DiscoveryCaseFile = {
     openQuestions: string[];
     lastReviewedBy: string | null;
     refreshedAt: string | null;
+  };
+  masterContactPlan?: {
+    version: number;
+    reviewOnly: true;
+    vectors: Array<{
+      id: string;
+      category: string;
+      vector: string;
+      purpose: string;
+      tools: string[];
+      status: string;
+      lastAttemptAt: string | null;
+      lastTools: string[];
+      latencyMs: number | null;
+      costClass: string | null;
+      evidenceNote: string | null;
+    }>;
   };
   nextInvestigation?: {
     rightHand: {
@@ -425,10 +454,61 @@ function parseDiscoveryCaseFile(
 
 function sourceDomain(url: string): string {
   try {
-    return new URL(url).hostname.replace(/^www\./, "");
+    return new URL(url).hostname.replace(/^www\\./, "");
   } catch {
     return "source";
   }
+}
+
+function parseEventPayload(event: BureauCaseEvent): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(event.payload) as unknown;
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function evaluateAdaptiveBehavior(
+  discoveryCase: BureauCase,
+  file: DiscoveryCaseFile | null,
+  events: BureauCaseEvent[],
+) {
+  const decisions = events.filter((event) => event.eventType === "decision");
+  const observations = events.filter((event) => event.eventType === "observation");
+  const sourceCount = new Set(
+    (file?.investigatorReports ?? []).flatMap((report) =>
+      report.sourceUrls.map(sourceDomain),
+    ),
+  ).size;
+  const evidenceChangedDirection =
+    decisions.length > 1 ||
+    (file?.decisionLog?.some((decision) => decision.iteration > 1) ?? false);
+  const plan = file?.masterContactPlan?.vectors ?? [];
+  const attemptedVectors = plan.filter((vector) => vector.status !== "pending").length;
+  const hasContradictionHandling =
+    events.some((event) => /contradict|conflict|reject|uncertain/i.test(event.summary)) ||
+    (file?.currentProgress?.openQuestions.length ?? 0) > 0;
+  const signals = [
+    evidenceChangedDirection,
+    attemptedVectors > 0,
+    sourceCount >= 2,
+    hasContradictionHandling,
+  ];
+  const score = Math.round((signals.filter(Boolean).length / signals.length) * 100);
+  return {
+    score,
+    label: score >= 75 ? "Strong adaptive evidence" : score >= 50 ? "Partial adaptive evidence" : "Mostly procedural evidence",
+    evidenceChangedDirection,
+    attemptedVectors,
+    sourceCount,
+    hasContradictionHandling,
+    decisions: decisions.length,
+    observations: observations.length,
+    iteration: discoveryCase.iteration,
+  };
 }
 
 function BureauCasePanel({
@@ -896,6 +976,9 @@ function DiscoveryBureauPanel({
   const [error, setError] = useState<string | null>(null);
   const file = parseDiscoveryCaseFile(discoveryCase?.caseFile);
   const investigatorReports = file?.investigatorReports ?? [];
+  const adaptive = discoveryCase
+    ? evaluateAdaptiveBehavior(discoveryCase, file, discoveryEvents)
+    : null;
 
   const request = async (url: string, body: unknown) => {
     setBusy(true);
@@ -2125,6 +2208,7 @@ export default function IntelTerminal() {
     useState<IntroPathCandidate | null>(null);
   const [bureauCase, setBureauCase] = useState<BureauCase | null>(null);
   const [discoveryCase, setDiscoveryCase] = useState<BureauCase | null>(null);
+  const [discoveryEvents, setDiscoveryEvents] = useState<BureauCaseEvent[]>([]);
   const logEndRef = useRef<HTMLDivElement | null>(null);
 
   // Mobile entity picker state
@@ -2183,21 +2267,28 @@ export default function IntelTerminal() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/research/bureau/cases/latest", { cache: "no-store" })
-      .then(async (response) => {
-        if (response.status === 404) return null;
-        if (!response.ok)
-          throw new Error("Unable to load the discovery bureau");
-        return response.json() as Promise<BureauCase>;
-      })
-      .then((next) => {
-        if (active && next) setDiscoveryCase(next);
-      })
-      .catch(() => {
+    const loadLatest = async () => {
+      try {
+        const response = await fetch("/api/research/bureau/cases/latest", { cache: "no-store" });
+        if (response.status === 404) return;
+        if (!response.ok) throw new Error("Unable to load the discovery bureau");
+        const next = (await response.json()) as BureauCase;
+        if (!active) return;
+        setDiscoveryCase(next);
+        const eventResponse = await fetch(`/api/research/bureau/cases/${next.id}/events?limit=200`, { cache: "no-store" });
+        if (eventResponse.ok) {
+          const events = (await eventResponse.json()) as BureauCaseEvent[];
+          if (active) setDiscoveryEvents(events);
+        }
+      } catch {
         // An empty discovery desk is a valid first-run state.
-      });
+      }
+    };
+    void loadLatest();
+    const interval = window.setInterval(() => void loadLatest(), 5000);
     return () => {
       active = false;
+      window.clearInterval(interval);
     };
   }, []);
 
@@ -2581,15 +2672,55 @@ export default function IntelTerminal() {
           />
         </div>
 
-        <DiscoveryBureauPanel
-          discoveryCase={discoveryCase}
-          entities={entities}
-          onCaseChange={setDiscoveryCase}
+  <DiscoveryBureauPanel
+  discoveryCase={discoveryCase}
+  entities={entities}
+  onCaseChange={(next) => {
+    setDiscoveryCase(next);
+    if (next) {
+      fetch(`/api/research/bureau/cases/${next.id}/events?limit=200`, { cache: "no-store" })
+        .then((response) => (response.ok ? response.json() : []))
+        .then((events) => setDiscoveryEvents(events as BureauCaseEvent[]))
+        .catch(() => undefined);
+    }
+  }}
           onPromote={(entityId) => {
             setDiscoveryCase(null);
             setSelectedEntityId(entityId);
           }}
         />
+        {discoveryCase && (
+          <div className="border-b border-border/50 bg-[#070B12] p-4 md:p-5 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-widest text-cyan-300">Bureau run console · case #{discoveryCase.id}</div>
+                <div className="mt-1 text-xs text-foreground">{discoveryCase.status} · iteration {discoveryCase.iteration} · {discoveryEvents.length} audit events</div>
+              </div>
+              {adaptive && <div className="rounded border border-cyan-400/30 bg-cyan-400/5 px-2 py-1 text-[10px] font-mono text-cyan-200">{adaptive.label} · {adaptive.score}/100</div>}
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-[10px] font-mono">
+              <div className="rounded border border-border/60 p-2"><div className="text-muted-foreground">Candidates</div><div className="mt-1 text-amber-200">{parseDiscoveryCaseFile(discoveryCase.caseFile)?.discoveredCandidates?.length ?? 0}</div></div>
+              <div className="rounded border border-border/60 p-2"><div className="text-muted-foreground">Public contacts</div><div className="mt-1 text-primary">{parseDiscoveryCaseFile(discoveryCase.caseFile)?.discoveredCandidates?.reduce((sum, candidate) => sum + (candidate.contactEvidence?.length ?? 0), 0) ?? 0}</div></div>
+              <div className="rounded border border-border/60 p-2"><div className="text-muted-foreground">Reports</div><div className="mt-1 text-cyan-200">{parseDiscoveryCaseFile(discoveryCase.caseFile)?.investigatorReports?.length ?? 0}</div></div>
+              <div className="rounded border border-border/60 p-2"><div className="text-muted-foreground">Master vectors attempted</div><div className="mt-1 text-emerald-300">{adaptive?.attemptedVectors ?? 0}/{parseDiscoveryCaseFile(discoveryCase.caseFile)?.masterContactPlan?.vectors.length ?? 0}</div></div>
+            </div>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              <div className="rounded border border-emerald-400/20 bg-emerald-400/5 p-3">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-emerald-300">Master Contact Plan</div>
+                <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">{(parseDiscoveryCaseFile(discoveryCase.caseFile)?.masterContactPlan?.vectors ?? []).map((vector) => <div key={vector.id} className="rounded border border-border/50 px-2 py-1.5 text-[10px]"><span className="text-foreground">{vector.vector}</span><span className="ml-2 text-muted-foreground">{vector.status}</span>{vector.evidenceNote && <div className="mt-1 text-muted-foreground">{vector.evidenceNote}</div>}</div>)}</div>
+              </div>
+              <div className="rounded border border-primary/20 bg-primary/5 p-3">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-primary">Adaptive behavior assessment</div>
+                <div className="mt-2 text-[10px] leading-relaxed text-muted-foreground">This measures observable behavior, not sentience. Evidence of adaptation: {adaptive?.evidenceChangedDirection ? "yes" : "not yet"}; source domains: {adaptive?.sourceCount ?? 0}; contradiction/open-question handling: {adaptive?.hasContradictionHandling ? "present" : "not observed"}.</div>
+                <div className="mt-2 text-[10px] text-foreground">Decisions {adaptive?.decisions ?? 0} · observations {adaptive?.observations ?? 0} · current iteration {adaptive?.iteration ?? 0}</div>
+              </div>
+            </div>
+            <details className="rounded border border-border/60 bg-background/30">
+              <summary className="cursor-pointer px-3 py-2 text-[10px] font-mono uppercase tracking-wider text-cyan-200">Auditable timeline · prompts, tool observations, writes, decisions</summary>
+              <div className="max-h-80 overflow-y-auto border-t border-border/50">{discoveryEvents.slice().reverse().map((event) => { const payload = parseEventPayload(event); return <details key={event.id} className="border-b border-border/40 px-3 py-2"><summary className="cursor-pointer list-none"><div className="flex flex-wrap gap-2 text-[10px] font-mono"><span className="text-cyan-300">{new Date(event.createdAt).toLocaleTimeString()}</span><span className="text-primary">{event.actorRole}</span><span className="text-amber-200">{event.eventType}</span><span className="text-muted-foreground">iteration {event.iteration}</span></div><div className="mt-1 text-[10px] text-foreground/85">{event.summary}</div></summary><pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap border-t border-border/40 pt-2 text-[9px] text-muted-foreground">{JSON.stringify(payload, null, 2)}</pre></details>; })}</div>
+            </details>
+          </div>
+        )}
 
         {/* ── Algorithm Pipeline Summary ── */}
         {algorithmPipeline && !isComputing && (
