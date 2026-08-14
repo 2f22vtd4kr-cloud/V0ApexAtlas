@@ -185,13 +185,66 @@ function progressPercent(value: number | null | undefined, total: number | null 
   return Math.min(100, Math.max(0, (value / total) * 100));
 }
 
-function ProgressBar({ value, color }: { value: number; color: string }) {
+function ProgressBar({
+  value,
+  color,
+  live = false,
+}: {
+  value: number;
+  color: string;
+  live?: boolean;
+}) {
   return (
-    <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-800/90">
+    <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-800/90 relative">
       <div
-        className="h-full rounded-full transition-[width] duration-500"
+        className="h-full rounded-full transition-[width] duration-500 ease-out"
         style={{ width: `${value}%`, backgroundColor: color }}
       />
+      {live && (
+        <div
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-full"
+          aria-hidden
+        >
+          <div className="h-full w-1/2 animate-[shimmer_1.4s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** One-shot REACH celebration — plays once when disposition first becomes contact_route_found */
+function ReachFoundBanner({ visible }: { visible: boolean }) {
+  const [played, setPlayed] = React.useState(false);
+  React.useEffect(() => {
+    if (visible && !played) {
+      setPlayed(true);
+    }
+  }, [visible, played]);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      className={`mb-3 overflow-hidden rounded-xl border border-emerald-400/40 bg-emerald-400/10 p-3 shadow-[0_0_24px_rgba(52,211,153,0.18)] transition-all duration-300 ease-out ${
+        played ? "animate-[reachIn_320ms_cubic-bezier(0.22,1,0.36,1)_forwards]" : "opacity-0 scale-95"
+      }`}
+      data-testid="banner-reach-found"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex items-start gap-2.5">
+        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-emerald-300/50 bg-emerald-400/20 text-emerald-200">
+          <CheckCircle2 className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">
+            REACH · Contact route found
+          </div>
+          <div className="mt-1 text-[11px] leading-relaxed text-emerald-100/90">
+            A viable outreach path is confirmed. Review the evidence lane and proceed when ready.
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -231,6 +284,7 @@ function LiveResearchConsole({
   const hasPersonaReview = Boolean(
     telemetry?.toolIds?.some(isPersonaReviewTool) || telemetry?.personaNames?.length,
   );
+  const reachFound = telemetry?.disposition === "contact_route_found";
   const statusLabel = isFailed
     ? "Run failed"
     : isDone
@@ -247,7 +301,8 @@ function LiveResearchConsole({
         : "border-white/10 bg-white/[0.03] text-slate-400";
 
   return (
-    <section className="mb-5 rounded-2xl border border-cyan-400/20 bg-[#071525]/95 p-3.5 shadow-[0_0_30px_rgba(34,211,238,0.07)]">
+    <section className="mb-5 rounded-2xl border border-cyan-400/20 bg-[#071525]/95 p-3.5 shadow-[0_0_30px_rgba(34,211,238,0.07)] transition-opacity duration-[220ms] ease-out">
+      <ReachFoundBanner visible={reachFound} />
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300">
@@ -305,7 +360,7 @@ function LiveResearchConsole({
             {phaseReported ? `${atlasState.phase} / ${atlasState.phaseTotal}` : "Not reported"}
           </div>
           <div className="mt-0.5 truncate text-[9px] text-slate-400">{atlasState?.phaseLabel || "Phase not reported"}</div>
-          <ProgressBar value={phasePercent} color="#22d3ee" />
+          <ProgressBar value={phasePercent} color="#22d3ee" live={isLive && phaseReported} />
         </div>
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5" data-testid="card-queue-progress">
           <div className="text-[8px] uppercase tracking-wider text-slate-500">{queueLabel}</div>
@@ -315,7 +370,7 @@ function LiveResearchConsole({
           <div className="mt-0.5 truncate text-[9px] text-slate-400">
             {hasTargetQueue ? "targets completed" : hasSourceQueue ? "sources completed" : "Atlas queue is not reported"}
           </div>
-          <ProgressBar value={queuePercent} color="#a3e635" />
+          <ProgressBar value={queuePercent} color="#a3e635" live={isLive && (hasTargetQueue || hasSourceQueue)} />
         </div>
       </div>
 
@@ -633,7 +688,7 @@ export function MobileReactorFlow(props: MobileReactorFlowProps) {
               type="button"
               onClick={onRefresh}
               disabled={syncing}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-slate-400 transition-colors hover:border-cyan-400/30 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-slate-400 transition-all duration-100 ease-out active:scale-[0.97] active:opacity-80 hover:border-cyan-400/30 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation"
               aria-label={syncing ? "Refreshing Atlas data" : "Refresh Atlas data"}
               data-testid="button-refresh-atlas"
             >
@@ -696,9 +751,9 @@ export function MobileReactorFlow(props: MobileReactorFlowProps) {
                 return (
                   <div
                     key={phase.id}
-                    className={`relative min-h-[62px] rounded-xl border p-2.5 transition-colors ${index === MOBILE_PHASES.length - 1 ? "col-span-2" : ""} ${
+                    className={`relative min-h-[62px] rounded-xl border p-2.5 transition-all duration-[220ms] ease-out ${index === MOBILE_PHASES.length - 1 ? "col-span-2" : ""} ${
                       isActive
-                        ? "border-cyan-400/40 bg-cyan-400/[0.08]"
+                        ? "border-cyan-400/40 bg-cyan-400/[0.08] shadow-[0_0_16px_rgba(34,211,238,0.12)] scale-[1.01]"
                         : isCompleted
                           ? "border-emerald-400/25 bg-emerald-400/[0.045]"
                           : "border-white/[0.08] bg-white/[0.025]"
