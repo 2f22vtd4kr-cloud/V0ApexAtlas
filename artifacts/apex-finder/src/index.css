@@ -143,6 +143,29 @@
 
 @media (prefers-reduced-motion: reduce) {
   .atlas-enter { animation: none; }
+  .animate-\[shimmer_1\.4s_ease-in-out_infinite\] { animation: none !important; }
+  .animate-\[reachIn_320ms_cubic-bezier\(0\.22\,1\,0\.36\,1\)_forwards\] { animation: none !important; opacity: 1 !important; transform: none !important; }
+}
+
+/* Reactor micro-interactions — P0 */
+@keyframes shimmer {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(220%); }
+}
+
+@keyframes reachIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(6px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .leaflet-container {
