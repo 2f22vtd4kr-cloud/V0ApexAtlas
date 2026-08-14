@@ -297,6 +297,271 @@ function DeskArmingSkeleton() {
 
 const PAUSE_AFTER_TOUCH_MS = 8000;
 const ARMING_MS = 400;
+const SCENE_AUTO_MS = 5200;
+const SCENE_TRANSITION_MS = 280;
+
+type WorkstageScene = {
+  id: string;
+  kind: "search" | "browser" | "prompt" | "phase";
+  title: string;
+  subtitle: string;
+  body?: string;
+  live?: boolean;
+};
+
+function deriveWorkstageScenes(
+  atlasState: AtlasLiveState | null,
+  livePhaseDetail: string,
+  isLive: boolean,
+): WorkstageScene[] {
+  const scenes: WorkstageScene[] = [];
+  const telemetry = atlasState?.atlasTelemetry;
+
+  if (atlasState?.phaseLabel) {
+    scenes.push({
+      id: `phase-${atlasState.phase}`,
+      kind: "phase",
+      title: atlasState.phaseLabel,
+      subtitle: `Phase ${atlasState.phase}${atlasState.phaseTotal ? ` / ${atlasState.phaseTotal}` : ""}`,
+      body: livePhaseDetail || atlasState.detail || undefined,
+      live: isLive,
+    });
+  }
+
+  const activeTool = telemetry?.activeToolId;
+  if (activeTool) {
+    const label = formatTool(activeTool);
+    const isLlm = /gemini|groq|perp|exa|tavily|prompt/i.test(activeTool);
+    const isSearch = /search|web|maigret|holehe|whoxy|domain|footprint/i.test(activeTool);
+    scenes.push({
+      id: `tool-${activeTool}`,
+      kind: isLlm ? "prompt" : isSearch ? "search" : "browser",
+      title: label,
+      subtitle: isLive ? "Active tool" : "Last tool",
+      body: telemetry?.prompt || telemetry?.inputSummary || telemetry?.resultSummary || undefined,
+      live: isLive && telemetry?.activeToolId === activeTool,
+    });
+  }
+
+  const events = atlasState?.eventLog ?? [];
+  for (const event of events.slice(0, 4)) {
+    if (!event.activeToolId && !event.stage) continue;
+    const id = `evt-${event.timestamp ?? event.stage}-${event.activeToolId ?? ""}`;
+    if (scenes.some((s) => s.id === id)) continue;
+    const tool = event.activeToolId ? formatTool(event.activeToolId) : event.stage || "Event";
+    scenes.push({
+      id,
+      kind: event.prompt ? "prompt" : event.activeToolId ? "browser" : "phase",
+      title: tool,
+      subtitle: event.status ? String(event.status) : "checkpoint",
+      body: event.resultSummary || event.inputSummary || event.prompt || undefined,
+      live: event.status === "active",
+    });
+  }
+
+  if (scenes.length === 0) {
+    scenes.push({
+      id: "standby",
+      kind: "phase",
+      title: isLive ? "Research running" : "Standby",
+      subtitle: isLive ? "Waiting for first tool scene" : "No active workstage",
+      body: livePhaseDetail || undefined,
+      live: isLive,
+    });
+  }
+
+  return scenes;
+}
+
+function SceneChrome({ scene }: { scene: WorkstageScene }) {
+  if (scene.kind === "search") {
+    return (
+      <div className="rounded-lg border border-white/10 bg-black/30 px-2.5 py-1.5">
+        <div className="flex items-center gap-2">
+          <div className="text-[9px] text-slate-500">⌕</div>
+          <div className="min-w-0 flex-1 truncate font-mono text-[10px] text-cyan-200/90">
+            {scene.body?.slice(0, 80) || scene.title}
+          </div>
+          {scene.live && (
+            <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-cyan-400" />
+          )}
+        </div>
+      </div>
+    );
+  }
+  if (scene.kind === "browser") {
+    return (
+      <div className="overflow-hidden rounded-lg border border-white/10 bg-black/30">
+        <div className="flex items-center gap-1.5 border-b border-white/5 px-2 py-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-rose-400/50" />
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-400/50" />
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/50" />
+          <div className="ml-1 min-w-0 flex-1 truncate rounded bg-slate-800/80 px-2 py-0.5 font-mono text-[9px] text-slate-400">
+            {scene.title}
+          </div>
+          {scene.live && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-400" />}
+        </div>
+        {scene.body && (
+          <div className="max-h-16 overflow-hidden px-2.5 py-2 text-[10px] leading-relaxed text-slate-400">
+            {scene.body.slice(0, 160)}
+          </div>
+        )}
+      </div>
+    );
+  }
+  if (scene.kind === "prompt") {
+    return (
+      <div className="rounded-lg border border-violet-400/20 bg-violet-400/[0.04] px-2.5 py-2">
+        <div className="mb-1 flex items-center gap-1.5 text-[8px] uppercase tracking-[0.16em] text-violet-300/80">
+          <span>LLM prompt</span>
+          {scene.live && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-violet-300" />}
+        </div>
+        <div className="max-h-16 overflow-hidden font-mono text-[10px] leading-relaxed text-slate-300">
+          {scene.body?.slice(0, 180) || scene.title}
+          {scene.live && <span className="ml-0.5 inline-block h-3 w-0.5 animate-pulse bg-violet-300 align-middle" />}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-lg border border-cyan-400/15 bg-cyan-400/[0.04] px-2.5 py-2">
+      <div className="text-[10px] leading-relaxed text-slate-300">
+        {scene.body || scene.subtitle}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Swipeable workstage — scene enter/exit with 280ms slide/crossfade.
+ * Auto-advances every 5.2s; pauses 8s after any touch (parent owns pause flag).
+ */
+function WorkstageScenes({
+  scenes,
+  isLive,
+  paused,
+  onInteract,
+}: {
+  scenes: WorkstageScene[];
+  isLive: boolean;
+  paused: boolean;
+  onInteract: () => void;
+}) {
+  const [index, setIndex] = React.useState(0);
+  const [dir, setDir] = React.useState<1 | -1>(1);
+  const touchX = React.useRef<number | null>(null);
+  const locked = React.useRef(false);
+
+  React.useEffect(() => {
+    setIndex((i) => Math.min(i, Math.max(0, scenes.length - 1)));
+  }, [scenes.length]);
+
+  React.useEffect(() => {
+    if (!isLive || paused || scenes.length < 2) return;
+    const id = window.setInterval(() => {
+      setDir(1);
+      setIndex((i) => (i + 1) % scenes.length);
+    }, SCENE_AUTO_MS);
+    return () => clearInterval(id);
+  }, [isLive, paused, scenes.length]);
+
+  const go = (next: number, direction: 1 | -1) => {
+    if (scenes.length === 0) return;
+    const wrapped = ((next % scenes.length) + scenes.length) % scenes.length;
+    setDir(direction);
+    setIndex(wrapped);
+    onInteract();
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchX.current = e.touches[0]?.clientX ?? null;
+    locked.current = false;
+    onInteract();
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (touchX.current == null || locked.current) return;
+    const dx = (e.touches[0]?.clientX ?? 0) - touchX.current;
+    if (Math.abs(dx) < 48) return;
+    locked.current = true;
+    if (dx < 0) go(index + 1, 1);
+    else go(index - 1, -1);
+  };
+  const onTouchEnd = () => {
+    touchX.current = null;
+    locked.current = false;
+  };
+
+  const scene = scenes[index] ?? scenes[0];
+  if (!scene) return null;
+
+  return (
+    <section
+      className="mb-5 select-none rounded-2xl border border-cyan-400/20 bg-[#071525]/95 p-3.5 shadow-[0_0_24px_rgba(34,211,238,0.06)]"
+      data-testid="workstage-scenes"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      aria-roledescription="carousel"
+      aria-label="Workstage scenes"
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[8px] uppercase tracking-[0.18em] text-slate-500">Workstage</div>
+          <div className="truncate text-[11px] font-semibold text-cyan-100">{scene.title}</div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            className="reactor-pressable flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-slate-400"
+            aria-label="Previous scene"
+            onClick={() => go(index - 1, -1)}
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            className="reactor-pressable flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-slate-400"
+            aria-label="Next scene"
+            onClick={() => go(index + 1, 1)}
+          >
+            ›
+          </button>
+        </div>
+      </div>
+
+      <div
+        key={scene.id}
+        className={`overflow-hidden ${
+          dir === 1
+            ? "animate-[sceneSlideLeft_280ms_cubic-bezier(0.22,1,0.36,1)_both]"
+            : "animate-[sceneSlideRight_280ms_cubic-bezier(0.22,1,0.36,1)_both]"
+        }`}
+      >
+        <div className="mb-1 text-[8px] uppercase tracking-wider text-slate-500">{scene.subtitle}</div>
+        <SceneChrome scene={scene} />
+      </div>
+
+      {/* Dot pager — morph active 6→10px */}
+      <div className="mt-3 flex items-center justify-center gap-1.5" role="tablist" aria-label="Scene pages">
+        {scenes.map((s, i) => (
+          <button
+            key={s.id}
+            type="button"
+            role="tab"
+            aria-selected={i === index}
+            aria-label={`Scene ${i + 1}: ${s.title}`}
+            className={`rounded-full transition-all duration-[var(--reactor-ui)] ease-out ${
+              i === index
+                ? "h-2.5 w-2.5 bg-cyan-300 shadow-[0_0_8px_rgba(34,211,238,0.5)]"
+                : "h-1.5 w-1.5 bg-slate-600 hover:bg-slate-400"
+            }`}
+            onClick={() => go(i, i > index ? 1 : -1)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
 
 function LiveResearchConsole({
   atlasState,
@@ -811,7 +1076,15 @@ export function MobileReactorFlow(props: MobileReactorFlowProps) {
           {arming ? (
             <DeskArmingSkeleton />
           ) : (
-            <LiveResearchConsole atlasState={atlasState} livePhaseDetail={livePhaseDetail} isLive={isLive} />
+            <>
+              <WorkstageScenes
+                scenes={deriveWorkstageScenes(atlasState, livePhaseDetail, isLive)}
+                isLive={isLive}
+                paused={interactionPaused}
+                onInteract={markInteraction}
+              />
+              <LiveResearchConsole atlasState={atlasState} livePhaseDetail={livePhaseDetail} isLive={isLive} />
+            </>
           )}
 
           {interactionPaused && isLive && (
