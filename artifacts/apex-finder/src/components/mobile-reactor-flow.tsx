@@ -249,6 +249,55 @@ function ReachFoundBanner({ visible }: { visible: boolean }) {
   );
 }
 
+/**
+ * Run-start desk arming — tool-shaped skeleton for ~400ms when a run goes live.
+ * Makes the first 2s feel like the desk is powering up, not an empty flash.
+ */
+function DeskArmingSkeleton() {
+  return (
+    <section
+      className="mb-5 animate-[armIn_400ms_ease-out_forwards] rounded-2xl border border-cyan-400/25 bg-[#071525]/95 p-3.5 shadow-[0_0_30px_rgba(34,211,238,0.07)]"
+      data-testid="desk-arming-skeleton"
+      aria-hidden
+    >
+      {/* Fake window chrome */}
+      <div className="mb-3 flex items-center gap-2 rounded-lg border border-white/10 bg-black/30 px-2.5 py-1.5">
+        <div className="flex gap-1">
+          <span className="h-2 w-2 rounded-full bg-rose-400/50" />
+          <span className="h-2 w-2 rounded-full bg-amber-400/50" />
+          <span className="h-2 w-2 rounded-full bg-emerald-400/50" />
+        </div>
+        <div className="h-2.5 flex-1 overflow-hidden rounded bg-slate-800/80">
+          <div className="h-full w-2/3 animate-[shimmer_1.4s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-cyan-400/20 to-transparent" />
+        </div>
+      </div>
+      {/* Prompt / search line */}
+      <div className="mb-3 h-8 overflow-hidden rounded-lg border border-white/10 bg-black/25 px-3">
+        <div className="mt-2.5 h-2.5 w-4/5 overflow-hidden rounded bg-slate-800/90">
+          <div className="h-full w-1/2 animate-[shimmer_1.4s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+        </div>
+      </div>
+      {/* Two metric placeholders */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="h-14 rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
+          <div className="h-2 w-12 rounded bg-slate-800/80" />
+          <div className="mt-2 h-3 w-10 rounded bg-cyan-400/20" />
+        </div>
+        <div className="h-14 rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
+          <div className="h-2 w-14 rounded bg-slate-800/80" />
+          <div className="mt-2 h-3 w-8 rounded bg-lime-400/20" />
+        </div>
+      </div>
+      <div className="mt-3 text-center text-[9px] uppercase tracking-[0.18em] text-cyan-400/60">
+        Arming desk…
+      </div>
+    </section>
+  );
+}
+
+const PAUSE_AFTER_TOUCH_MS = 8000;
+const ARMING_MS = 400;
+
 function LiveResearchConsole({
   atlasState,
   livePhaseDetail,
@@ -627,6 +676,30 @@ export function MobileReactorFlow(props: MobileReactorFlowProps) {
   const isLive = atlasState
     ? atlasState.runStatus === "running"
     : liveNodes.size > 0;
+
+  // P2: Run-start desk arming — brief tool-shaped skeleton on live transition
+  const [arming, setArming] = React.useState(false);
+  const wasLiveRef = React.useRef(false);
+  React.useEffect(() => {
+    if (isLive && !wasLiveRef.current) {
+      setArming(true);
+      const t = window.setTimeout(() => setArming(false), ARMING_MS);
+      wasLiveRef.current = true;
+      return () => clearTimeout(t);
+    }
+    if (!isLive) {
+      wasLiveRef.current = false;
+      setArming(false);
+    }
+  }, [isLive]);
+
+  // P2: Pause auto-cycling / highlight churn for 8s after any touch
+  const [lastTouchAt, setLastTouchAt] = React.useState(0);
+  const interactionPaused = lastTouchAt > 0 && Date.now() - lastTouchAt < PAUSE_AFTER_TOUCH_MS;
+  const markInteraction = React.useCallback(() => {
+    setLastTouchAt(Date.now());
+  }, []);
+
   const schedulerCountdown = formatSchedulerCountdown(schedulerWaitRemaining(scheduler, schedulerNow));
   const waitingForNextCycle = Boolean(!isLive && schedulerCountdown);
   const statusLabel = atlasState?.runStatus === "failed"
@@ -657,7 +730,11 @@ export function MobileReactorFlow(props: MobileReactorFlowProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#0b1120] font-sans text-slate-200">
+    <div
+      className="flex h-full min-h-0 flex-col overflow-hidden bg-[#0b1120] font-sans text-slate-200"
+      onTouchStart={markInteraction}
+      onPointerDown={markInteraction}
+    >
       <header className="shrink-0 border-b border-white/10 bg-black/25 px-4 py-2.5 backdrop-blur-md">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -731,7 +808,20 @@ export function MobileReactorFlow(props: MobileReactorFlowProps) {
 
       <div className="atlas-grid atlas-grid-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4" style={{ WebkitOverflowScrolling: "touch" }}>
         <div className="mx-auto max-w-md">
-          <LiveResearchConsole atlasState={atlasState} livePhaseDetail={livePhaseDetail} isLive={isLive} />
+          {arming ? (
+            <DeskArmingSkeleton />
+          ) : (
+            <LiveResearchConsole atlasState={atlasState} livePhaseDetail={livePhaseDetail} isLive={isLive} />
+          )}
+
+          {interactionPaused && isLive && (
+            <div
+              className="mb-3 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-center text-[8px] uppercase tracking-[0.16em] text-slate-500"
+              data-testid="status-interaction-paused"
+            >
+              Reading pause · auto-advance held
+            </div>
+          )}
 
           <section aria-labelledby="pipeline-map-title" data-testid="section-pipeline-map">
             <div className="mb-2.5 flex items-center justify-between gap-2">
