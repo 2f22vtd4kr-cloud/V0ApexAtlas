@@ -465,13 +465,13 @@ function LiveResearchConsole({
           </div>
 
           {(telemetry.toolIds?.length || telemetry.personaNames?.length || telemetry.nextAction) && (
-            <details className="mb-3 rounded-xl border border-white/10 bg-black/20">
-              <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-[9px] uppercase tracking-[0.16em] text-slate-500 touch-manipulation">
+            <details className="reactor-details mb-3 rounded-xl border border-white/10 bg-black/20">
+              <summary className="reactor-pressable flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-[9px] uppercase tracking-[0.16em] text-slate-500">
                 <span className="flex items-center gap-2">
                   <Cpu className="h-3 w-3 text-cyan-400/80" />
                   Research context
                 </span>
-                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-600 transition-transform" />
+                <ChevronDown className="reactor-chevron h-3.5 w-3.5 shrink-0 text-slate-600" />
               </summary>
               <div className="space-y-3 border-t border-white/10 px-3 pb-3 pt-3">
                 {telemetry.toolIds && telemetry.toolIds.length > 0 && (
@@ -551,10 +551,10 @@ function LiveResearchConsole({
           )}
 
           {(telemetry.inputSummary || telemetry.prompt) && (
-            <details className="mb-3 rounded-xl border border-white/10 bg-black/20">
-              <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between px-3 py-2 text-[9px] uppercase tracking-[0.18em] text-slate-500 touch-manipulation">
+            <details className="reactor-details mb-3 rounded-xl border border-white/10 bg-black/20">
+              <summary className="reactor-pressable flex min-h-[44px] cursor-pointer list-none items-center justify-between px-3 py-2 text-[9px] uppercase tracking-[0.18em] text-slate-500">
                 Show research input
-                <ChevronDown className="h-3.5 w-3.5 text-slate-600" />
+                <ChevronDown className="reactor-chevron h-3.5 w-3.5 text-slate-600" />
               </summary>
               <div className="max-h-36 overflow-y-auto border-t border-white/10 px-3 py-3 whitespace-pre-wrap text-[10px] leading-relaxed text-slate-400">
                 {telemetry.inputSummary || telemetry.prompt}
@@ -565,8 +565,8 @@ function LiveResearchConsole({
       )}
 
       {atlasState?.eventLog && atlasState.eventLog.length > 0 && (
-        <details className="rounded-xl border border-white/10 bg-black/20" data-testid="details-event-feed">
-          <summary className="flex min-h-[46px] cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 touch-manipulation">
+        <details className="reactor-details rounded-xl border border-white/10 bg-black/20" data-testid="details-event-feed">
+          <summary className="reactor-pressable flex min-h-[46px] cursor-pointer list-none items-center justify-between gap-2 px-3 py-2">
             <span className="flex min-w-0 items-center gap-2">
               <Activity className="h-3.5 w-3.5 shrink-0 text-cyan-400/80" />
               <span className="truncate text-[9px] uppercase tracking-[0.16em] text-slate-500">Confirmed event feed</span>
@@ -574,7 +574,7 @@ function LiveResearchConsole({
                 {atlasState.eventLog.length}
               </span>
             </span>
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-600" />
+            <ChevronDown className="reactor-chevron h-3.5 w-3.5 shrink-0 text-slate-600" />
           </summary>
           <div className="space-y-2 border-t border-white/10 px-3 pb-3 pt-3">
             {atlasState.eventLog.slice(0, 8).map((event, index) => {
@@ -587,7 +587,7 @@ function LiveResearchConsole({
                     : "border-cyan-400/20 bg-cyan-400/[0.04] text-cyan-200";
               return (
                 <details key={`${event.timestamp ?? "event"}-${index}`} className={`rounded-xl border p-2.5 ${statusColor}`}>
-                  <summary className="min-h-[42px] cursor-pointer list-none touch-manipulation">
+                  <summary className="reactor-pressable min-h-[42px] cursor-pointer list-none">
                     <div className="flex items-start gap-2">
                       <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-current" />
                       <div className="min-w-0 flex-1">
@@ -609,7 +609,7 @@ function LiveResearchConsole({
                     {event.inputSummary && <div><span className="text-slate-600">INPUT · </span>{event.inputSummary}</div>}
                     {event.prompt && (
                       <details className="rounded-lg border border-white/10 bg-black/20 p-2">
-                        <summary className="min-h-[36px] cursor-pointer list-none py-2 text-[9px] uppercase tracking-wider text-slate-500 touch-manipulation">
+                        <summary className="reactor-pressable min-h-[36px] cursor-pointer list-none py-2 text-[9px] uppercase tracking-wider text-slate-500">
                           Prompt sent
                         </summary>
                         <div className="max-h-40 overflow-y-auto whitespace-pre-wrap text-[9px] leading-4 text-slate-400">{event.prompt}</div>
@@ -765,7 +765,7 @@ export function MobileReactorFlow(props: MobileReactorFlowProps) {
               type="button"
               onClick={onRefresh}
               disabled={syncing}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-slate-400 transition-all duration-100 ease-out active:scale-[0.97] active:opacity-80 hover:border-cyan-400/30 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation"
+              className="reactor-pressable flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-slate-400 hover:border-cyan-400/30 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 disabled:active:opacity-50"
               aria-label={syncing ? "Refreshing Atlas data" : "Refresh Atlas data"}
               data-testid="button-refresh-atlas"
             >
@@ -841,12 +841,14 @@ export function MobileReactorFlow(props: MobileReactorFlowProps) {
                 return (
                   <div
                     key={phase.id}
-                    className={`relative min-h-[62px] rounded-xl border p-2.5 transition-all duration-[220ms] ease-out ${index === MOBILE_PHASES.length - 1 ? "col-span-2" : ""} ${
+                    className={`relative min-h-[62px] rounded-xl border p-2.5 transition-all duration-[var(--reactor-ui)] ease-out ${index === MOBILE_PHASES.length - 1 ? "col-span-2" : ""} ${
                       isActive
-                        ? "border-cyan-400/40 bg-cyan-400/[0.08] shadow-[0_0_16px_rgba(34,211,238,0.12)] scale-[1.01]"
+                        ? "reactor-phase-active border-cyan-400/40 bg-cyan-400/[0.08] shadow-[0_0_16px_rgba(34,211,238,0.12)] scale-[1.01]"
                         : isCompleted
                           ? "border-emerald-400/25 bg-emerald-400/[0.045]"
-                          : "border-white/[0.08] bg-white/[0.025]"
+                          : isLive && activePhaseIndex >= 0
+                            ? "border-white/[0.06] bg-white/[0.015] opacity-55"
+                            : "border-white/[0.08] bg-white/[0.025]"
                     }`}
                     data-testid={`pipeline-stage-${phase.id}`}
                   >
