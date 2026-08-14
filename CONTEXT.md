@@ -160,3 +160,13 @@ Based on incomplete items from prior context:
 4. **Persona loop — apply suggestions** — 300 pending improvement suggestions exist. The apply flow (`PATCH /api/improve/logs/:logId` with `{"status":"applied"}`) exists but no automation runs it yet.
 
 5. **OpenSky live flight enrichment** — `POST /api/ingest/opensky` — enriches aviation assets with live ADS-B position data. Hasn't been run on the new 30,000 FAA records.
+
+
+## Micro-interaction audit close-out (2026-08-14)
+
+- PR #5 REACH + shimmer + press
+- PR #6 desk arming + reading pause
+- PR #7 motion tokens + focus-dim
+- PR #8 swipeable workstage scene slide/crossfade
+
+All priority-matrix items from the reactor micro-interaction audit are on `main`.
