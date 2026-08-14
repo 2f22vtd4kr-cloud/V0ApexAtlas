@@ -141,14 +141,56 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ── Reactor motion tokens (audit design rules) ── */
+:root {
+  --reactor-fast: 150ms;
+  --reactor-ui: 220ms;
+  --reactor-scene: 280ms;
+  --reactor-celebrate: 320ms;
+  --reactor-arm: 400ms;
+  --reactor-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --reactor-ease-press: ease-out;
+}
+
+/* Shared press recipe: every tappable ≥40px */
+.reactor-pressable {
+  transition:
+    transform var(--reactor-fast) var(--reactor-ease-press),
+    opacity var(--reactor-fast) var(--reactor-ease-press),
+    border-color var(--reactor-ui) ease,
+    color var(--reactor-ui) ease,
+    background-color var(--reactor-ui) ease;
+  touch-manipulation: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.reactor-pressable:active {
+  transform: scale(0.97);
+  opacity: 0.85;
+}
+
+/* Chevron rotate when details open */
+details.reactor-details > summary .reactor-chevron {
+  transition: transform var(--reactor-ui) var(--reactor-ease-out);
+}
+details.reactor-details[open] > summary .reactor-chevron {
+  transform: rotate(180deg);
+}
+
+/* Phase card active enter */
+.reactor-phase-active {
+  animation: phaseActivate var(--reactor-scene) var(--reactor-ease-out) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .atlas-enter { animation: none; }
   .animate-\[shimmer_1\.4s_ease-in-out_infinite\] { animation: none !important; }
   .animate-\[reachIn_320ms_cubic-bezier\(0\.22\,1\,0\.36\,1\)_forwards\] { animation: none !important; opacity: 1 !important; transform: none !important; }
   .animate-\[armIn_400ms_ease-out_forwards\] { animation: none !important; opacity: 1 !important; }
+  .reactor-phase-active { animation: none !important; }
+  .reactor-pressable:active { transform: none; opacity: 1; }
 }
 
-/* Reactor micro-interactions — P0 / P2 */
+/* Reactor micro-interactions — P0 / P2 / polish */
 @keyframes shimmer {
   0% { transform: translateX(-120%); }
   100% { transform: translateX(220%); }
@@ -172,6 +214,11 @@
 @keyframes armIn {
   0% { opacity: 0; transform: translateY(4px); }
   100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes phaseActivate {
+  0% { opacity: 0.7; transform: scale(0.98); }
+  100% { opacity: 1; transform: scale(1.01); }
 }
 
 .leaflet-container {
