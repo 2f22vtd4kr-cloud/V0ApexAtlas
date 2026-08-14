@@ -186,6 +186,8 @@ details.reactor-details[open] > summary .reactor-chevron {
   .animate-\[shimmer_1\.4s_ease-in-out_infinite\] { animation: none !important; }
   .animate-\[reachIn_320ms_cubic-bezier\(0\.22\,1\,0\.36\,1\)_forwards\] { animation: none !important; opacity: 1 !important; transform: none !important; }
   .animate-\[armIn_400ms_ease-out_forwards\] { animation: none !important; opacity: 1 !important; }
+  .animate-\[sceneSlideLeft_280ms_cubic-bezier\(0\.22\,1\,0\.36\,1\)_both\] { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .animate-\[sceneSlideRight_280ms_cubic-bezier\(0\.22\,1\,0\.36\,1\)_both\] { animation: none !important; opacity: 1 !important; transform: none !important; }
   .reactor-phase-active { animation: none !important; }
   .reactor-pressable:active { transform: none; opacity: 1; }
 }
@@ -219,6 +221,16 @@ details.reactor-details[open] > summary .reactor-chevron {
 @keyframes phaseActivate {
   0% { opacity: 0.7; transform: scale(0.98); }
   100% { opacity: 1; transform: scale(1.01); }
+}
+
+/* Scene enter/exit — 280ms, direction-aware */
+@keyframes sceneSlideLeft {
+  0% { opacity: 0; transform: translateX(18px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes sceneSlideRight {
+  0% { opacity: 0; transform: translateX(-18px); }
+  100% { opacity: 1; transform: translateX(0); }
 }
 
 .leaflet-container {
