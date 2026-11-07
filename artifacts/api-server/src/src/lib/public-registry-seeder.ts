@@ -18,7 +18,7 @@ import {
   relationshipsTable,
   publicRegistrySeedRecordsTable,
 } from "@workspace/db";
-import { eq, like } from "drizzle-orm";
+import { eq, inArray, like } from "drizzle-orm";
 import { appendJobLog, updateJob } from "./job-queue";
 import { logger } from "./logger";
 
@@ -712,17 +712,19 @@ async function importFaaIndividualCandidates(
   const prefix = "faa-individual-person:";
   const index = await loadSeedIndex(prefix);
   const personIds = new Map<string, number>();
-  for (const [sourceKey, row] of index) {
-    const entityId = row.entityId;
-    if (!entityId) continue;
-    const metadataRow = await db.select({ name: entitiesTable.name, metadata: entitiesTable.metadata })
-      .from(entitiesTable).where(eq(entitiesTable.id, entityId)).limit(1).then((rows) => rows[0]);
-    if (!metadataRow) continue;
-    try {
-      const meta = JSON.parse(metadataRow.metadata ?? "{}") as Record<string, any>;
-      const location = meta.faaRegistrantArea ?? {};
-      personIds.set(normalize(metadataRow.name) + "|" + normalize(String(location.city ?? "")) + "|" + normalize(String(location.state ?? "")), entityId);
-    } catch { /* ignore malformed metadata */ }
+  const existingEntityIds = [...index.values()].map((row) => row.entityId).filter((id): id is number => id != null);
+  if (existingEntityIds.length) {
+    for (let offset = 0; offset < existingEntityIds.length; offset += BATCH_SIZE) {
+      const rows = await db.select({ id: entitiesTable.id, name: entitiesTable.name, metadata: entitiesTable.metadata })
+        .from(entitiesTable).where(inArray(entitiesTable.id, existingEntityIds.slice(offset, offset + BATCH_SIZE)));
+      for (const metadataRow of rows) {
+        try {
+          const meta = JSON.parse(metadataRow.metadata ?? "{}") as Record<string, any>;
+          const location = meta.faaRegistrantArea ?? {};
+          personIds.set(normalize(metadataRow.name) + "|" + normalize(String(location.city ?? "")) + "|" + normalize(String(location.state ?? "")), metadataRow.id);
+        } catch { /* ignore malformed metadata */ }
+      }
+    }
   }
 
   let batch: EntitySeed[] = [];
