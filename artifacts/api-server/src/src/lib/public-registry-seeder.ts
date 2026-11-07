@@ -726,7 +726,7 @@ async function importFaaIndividualCandidates(
         try {
           const meta = JSON.parse(metadataRow.metadata ?? "{}") as Record<string, any>;
           const location = meta.faaRegistrantArea ?? {};
-          personIds.set(normalize(metadataRow.name) + "|" + normalize(String(location.city ?? "")) + "|" + normalize(String(location.state ?? "")), metadataRow.id);
+          personIds.set(normalize(metadataRow.name) + "|" + normalize(String(location.city ?? "")) + "|" + normalize(String(location.state ?? "")) + "|" + normalize(String(location.registrantCountry ?? "")), metadataRow.id);
         } catch { /* ignore malformed metadata */ }
       }
     }
