@@ -222,19 +222,28 @@ def export_faa() -> dict[str, Any]:
             })
         companies.sort(key=lambda x: (-x["registered_aircraft_count"], x["organization"].casefold()))
 
-        # Narrow person-owner review cohort: only individual FAA registrant type
-        # with turbine aircraft, multi-engine fixed-wing aircraft or rotorcraft.
-        # Never export street address, ZIP, private phone, or home coordinates.
+        # Census the source encoding before filtering. OpenAirDocs may expose
+        # FAA's original numeric codes or normalized string labels.
         registrant_type_col = registration_fields["type_registrant"]
         if registrant_type_col == "NULL":
             raise RuntimeError("FAA schema has no registrant_type; cannot safely separate person records")
+        registrant_type_counts = con.execute(f"""
+            SELECT CAST(registrant_type AS VARCHAR) AS registrant_type, COUNT(*) AS rows
+            FROM read_parquet('{reg_url}')
+            GROUP BY 1 ORDER BY rows DESC
+        """).fetchdf().to_dict("records")
 
+        # Accept only an unambiguous FAA Individual code/label. This excludes
+        # partnerships, co-owners, LLCs, corporations, trustees and government.
         individual_query = f"""
             SELECT {projection}
             FROM read_parquet('{reg_url}') r
             LEFT JOIN read_parquet('{model_url}') m
               ON m.code = r.aircraft_model_code
-            WHERE CAST(r.registrant_type AS VARCHAR) = '1'
+            WHERE regexp_matches(
+                upper(trim(CAST(r.registrant_type AS VARCHAR))),
+                '(^1($|[^0-9])|INDIVIDUAL|PERSON)'
+              )
               AND r.registrant_name IS NOT NULL
               AND r.status IN ('Valid registration', 'First renewal notice')
         """
@@ -345,6 +354,7 @@ def export_faa() -> dict[str, Any]:
                 "registration_columns": sorted(reg_cols),
                 "model_columns": sorted(model_cols),
                 "classification_columns_found": registration_fields,
+                "registrant_type_counts": registrant_type_counts,
             },
             "faa_corporate_registrants": write_csv(
                 OUT / "faa_corporate_registrants.csv", companies
@@ -537,7 +547,7 @@ def main() -> int:
         "run_at_utc": datetime.now(timezone.utc).isoformat(),
         "sources": {},
         "privacy_and_realism_controls": [
-            "FAA private individual registrants are not exported.",
+            "FAA individual registrants are exported only as a narrow review-only candidate cohort when the live registrant_type value is an unambiguous Individual code/label AND aircraft category/engine criteria qualify; no owner street address, ZIP, personal contact fields or home coordinates are exported.",
             "FAA output includes only legal-entity-name matches and aircraft metadata; registrant status is not beneficial ownership.",
             "FAA street addresses, home-location points, and personal phone numbers are not exported.",
             "BRREG company rows include registered business contacts and business premises only.",
