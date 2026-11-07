@@ -135,6 +135,8 @@ function jurisdictionToCoords(jurisdiction: string): [number, number] | null {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface AtlasOptions {
+  /** Max already-seeded public registry targets to research per Atlas run. Default: 5; sequential, one target at a time. */
+  registrySeedTargetCount?: number;
   /** Target entity count for Western HNWI (EDGAR + CH + BRREG). Default: 15 000 */
   targetCount?: number;
   /** Max FAA aircraft records to ingest. Default: 60 000 */
@@ -1717,6 +1719,120 @@ export async function runAtlasPipeline(atlasJobId: string, opts: AtlasOptions): 
     summary["Phase 0b"] = `CH contact: ${(chRes as any).enriched ?? 0} | OpenOwnership + Foundation filings done`;
   } else {
     summary["Phase 0"] = "Skipped (skipIngestion=true)";
+  }
+
+  // ── Existing source-backed seed cards: bounded Bureau research queue ────────
+  // The bulk seeder creates canonical entity/asset/relationship cards with
+  // cookedAt=NULL and metadata.publicRegistrySeed.researchState=queued.
+  // This phase deliberately processes only a small sequential slice per Atlas
+  // run; it never dumps an entire registry universe into the expensive Bureau.
+  const seedResearchLimit = Math.max(0, Math.min(50, opts.registrySeedTargetCount ?? 5));
+  let seedTargetsResearched = 0;
+  let seedTargetsNeedingFollowUp = 0;
+  if (seedResearchLimit > 0) {
+    await status("Phase 0c: Research existing public-registry seed cards…", 0);
+    try {
+      const seedCandidates = await db.select({
+        id: entitiesTable.id,
+        name: entitiesTable.name,
+        type: entitiesTable.type,
+        email: entitiesTable.email,
+        phone: entitiesTable.phone,
+        phoneSource: entitiesTable.phoneSource,
+        linkedinUrl: entitiesTable.linkedinUrl,
+        twitterHandle: entitiesTable.twitterHandle,
+        instagramHandle: entitiesTable.instagramHandle,
+        telegramHandle: entitiesTable.telegramHandle,
+        bayesianScore: entitiesTable.bayesianScore,
+        contactConfidence: entitiesTable.contactConfidence,
+        knownResidences: entitiesTable.knownResidences,
+        metadata: entitiesTable.metadata,
+        notes: entitiesTable.notes,
+        sourceRegistries: entitiesTable.sourceRegistries,
+      }).from(entitiesTable).where(and(
+        eq(entitiesTable.isHidden, false),
+        sql`${entitiesTable.cookedAt} IS NULL`,
+        sql`${entitiesTable.metadata}::jsonb #>> '{publicRegistrySeed,researchEligible}' = 'true'`,
+        sql`(
+          ${entitiesTable.metadata}::jsonb #>> '{publicRegistrySeed,researchState}' = 'queued'
+          OR (
+            ${entitiesTable.metadata}::jsonb #>> '{publicRegistrySeed,researchState}' = 'needs-follow-up'
+            AND COALESCE(
+              NULLIF(${entitiesTable.metadata}::jsonb #>> '{publicRegistrySeed,nextResearchAt}', '')::timestamptz,
+              NOW()
+            ) <= NOW()
+          )
+        )`,
+      )).orderBy(
+        sql`CASE WHEN ${entitiesTable.type} = 'HNWI' THEN 0 ELSE 1 END`,
+        desc(entitiesTable.bayesianScore),
+        desc(entitiesTable.createdAt),
+      ).limit(seedResearchLimit);
+
+      if (seedCandidates.length) {
+        const seedBatchResult = await runEntityBatch(
+          atlasJobId,
+          "Phase 0c / Public Registry Seed Bureau",
+          seedCandidates,
+          (entity) => enrichEntityFullCircle(atlasJobId, entity as EntityRow),
+          1,
+          async (entity) => {
+            // Read the post-research row so we do not overwrite evidence,
+            // contacts, or metadata written by the existing Bureau phases.
+            const current = await db.select({
+              metadata: entitiesTable.metadata,
+              cookedAt: entitiesTable.cookedAt,
+            }).from(entitiesTable).where(eq(entitiesTable.id, entity.id)).limit(1).then((rows) => rows[0]);
+            if (!current) return;
+            const metadata = safeJson<Record<string, any>>(current.metadata, {});
+            const seed = metadata.publicRegistrySeed && typeof metadata.publicRegistrySeed === "object"
+              ? metadata.publicRegistrySeed as Record<string, any>
+              : {};
+            const attempts = Number(seed.researchAttempts ?? 0) + 1;
+            const now = new Date();
+            seed.researchAttempts = attempts;
+            seed.lastResearchAt = now.toISOString();
+            seed.researchState = current.cookedAt ? "completed" : "needs-follow-up";
+            seed.nextResearchAt = current.cookedAt
+              ? null
+              : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+            seed.lastResearchDisposition = current.cookedAt
+              ? "contact-route-found"
+              : "reviewed-no-validated-direct-route";
+            metadata.publicRegistrySeed = seed;
+            await db.update(entitiesTable).set({
+              metadata: JSON.stringify(metadata),
+              updatedAt: new Date(),
+            }).where(eq(entitiesTable.id, entity.id));
+            if (!current.cookedAt) seedTargetsNeedingFollowUp++;
+          },
+          opts.targetTimeoutMs ?? DEFAULT_TARGET_TIMEOUT_MS,
+        );
+        seedTargetsResearched = seedBatchResult.ok;
+        totalEnriched += seedBatchResult.ok;
+        cookedCount += seedBatchResult.ok;
+        summary["Seed card research"] =
+          `${seedCandidates.length} queued → ${seedBatchResult.ok} reviewed, ${seedBatchResult.err} errors, ${seedTargetsNeedingFollowUp} awaiting later follow-up`;
+        // Apply graph attribution to the bounded seeded cohort after its
+        // target-scoped evidence has been gathered.
+        try {
+          const seedPhaseJJobId = await createJob("phase-j-pass");
+          await setActiveJob("phase-j-pass", seedPhaseJJobId);
+          await runPhaseJBatch(seedPhaseJJobId, Math.min(seedResearchLimit, 25), atlasJobId);
+          await setActiveJob("phase-j-pass", "");
+        } catch (err: any) {
+          logger.warn({ err: err?.message }, "[Atlas] Seed queue Phase J pass failed (non-fatal)");
+          await setActiveJob("phase-j-pass", "");
+        }
+      } else {
+        summary["Seed card research"] = "No queued public-registry seed cards due for research.";
+      }
+    } catch (err: any) {
+      logger.warn({ err: err?.message }, "[Atlas] Public registry seed research queue failed (non-fatal)");
+      summary["Seed card research"] = `Queue error: ${err?.message ?? String(err)}`;
+    }
+  } else {
+    summary["Seed card research"] = "Skipped (registrySeedTargetCount=0)";
   }
 
   // ── Discovery + Full-circle loop ─────────────────────────────────────────────
