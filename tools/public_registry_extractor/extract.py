@@ -219,7 +219,7 @@ def export_faa() -> dict[str, int]:
             "zip", "postal", "phone", "email", "website", "rating", "class",
             "country", "bilateral", "address", "country",
         ]
-        unsafe_patterns = ["contact_name", "contact_person", "first_name", "last_name", "birth", "owner_person", "individual", "personal"]
+        unsafe_patterns = ["contact_name", "contact_person", "first_name", "last_name", "birth", "owner_person", "individual", "personal", "manager_phone", "manager_email", "liaison_phone", "liaison_email", "accountable_manager", "liaison"]
         keep = [
             c for c in station_df.columns
             if any(p in c.lower() for p in safe_patterns)
