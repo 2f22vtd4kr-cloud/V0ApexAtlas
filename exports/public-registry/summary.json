@@ -1,0 +1,38 @@
+{
+  "run_at_utc": "2026-11-07T16:36:38.504096+00:00",
+  "sources": {
+    "FAA/OpenAirDocs": {
+      "faa_corporate_registrants": 79831,
+      "faa_corporate_aircraft": 147308,
+      "faa_part145_repair_stations": 5080,
+      "faa_unique_corporate_registrants": 79831,
+      "faa_aircraft_rows_for_corporate_registrants": 147308,
+      "faa_part145_station_rows": 5080
+    },
+    "Norway/BRREG": {
+      "brreg_companies": 38213,
+      "brreg_people_roles": 2607,
+      "brreg_role_companies_queried": 500,
+      "brreg_api_failures": 0
+    }
+  },
+  "privacy_and_realism_controls": [
+    "FAA private individual registrants are not exported.",
+    "FAA output includes only legal-entity-name matches and aircraft metadata; registrant status is not beneficial ownership.",
+    "FAA street addresses, home-location points, and personal phone numbers are not exported.",
+    "BRREG company rows include registered business contacts and business premises only.",
+    "BRREG people rows include published business-role names and company role only; no birth dates, personal identifiers, or addresses.",
+    "Company switchboards and general inboxes remain organization contacts, not personal access.",
+    "No wealth estimate is generated from aircraft, share capital, headcount, or institutional portfolio values.",
+    "Every exported row preserves source provenance and is not auto-promoted to contact-qualified status."
+  ],
+  "errors": [],
+  "export_files": [
+    "brreg_api_failures.json",
+    "faa_corporate_aircraft.csv",
+    "faa_corporate_registrants.csv",
+    "faa_part145_repair_stations.csv",
+    "norway_business_people_roles.csv",
+    "norway_real_estate_and_professional_companies.csv"
+  ]
+}
