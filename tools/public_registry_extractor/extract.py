@@ -167,6 +167,9 @@ def export_faa() -> dict[str, Any]:
             LEFT JOIN read_parquet('{model_url}') m
               ON m.code = r.aircraft_model_code
             WHERE r.registrant_name IS NOT NULL
+              AND r.status IN ('Valid registration', 'First renewal notice',
+                               'Valid registration (dealer)',
+                               'Non-citizen corporation, flight hours not reported')
               AND regexp_matches(upper(r.registrant_name),
                   '(^|[^A-Z0-9])(LLC|L[.]L[.]C[.]?|LLP|L[.]L[.]P[.]?|INC[.]?|CORP(ORATION)?|LTD[.]?|LIMITED|PLC|GMBH|SAS|SARL|S[.]R[.]L[.]?|B[.]V[.]?|N[.]V[.]?|A[.]G[.]?|A/S|APS|OY|AB|AS|TRUST(EE)?|BANK|HOLDINGS?|PARTNERSHIP|L[.]P[.]?)([^A-Z0-9]|$)')
         """
@@ -198,10 +201,10 @@ def export_faa() -> dict[str, Any]:
         asset_rows = aircraft[aircraft_cols].to_dict("records")
 
         grouped = aircraft.groupby(
-            ["registrant_name", "registrant_city", "registrant_state"], dropna=False
+            ["registrant_name", "registrant_city", "registrant_state", "registrant_country"], dropna=False
         )
         companies: list[dict[str, Any]] = []
-        for (name, city, state), group in grouped:
+        for (name, city, state, country), group in grouped:
             models = sorted({
                 " ".join(str(x) for x in [row.get("manufacturer"), row.get("model")] if x and str(x) != "nan").strip()
                 for row in group.to_dict("records")
@@ -209,7 +212,7 @@ def export_faa() -> dict[str, Any]:
             tails = sorted({str(x) for x in group["n_number"].dropna().tolist()})
             companies.append({
                 "organization": name,
-                "country": "United States",
+                "registrant_country": country,
                 "registrant_city": city,
                 "registrant_state": state,
                 "registered_aircraft_count": len(tails),
@@ -279,6 +282,7 @@ def export_faa() -> dict[str, Any]:
                     "person_name": record.get("person_name"),
                     "registrant_city": record.get("registrant_city"),
                     "registrant_state": record.get("registrant_state"),
+                    "registrant_country": record.get("registrant_country"),
                     "n_number": record.get("n_number"),
                     "status": record.get("status"),
                     "manufacturer": record.get("manufacturer"),
@@ -292,9 +296,9 @@ def export_faa() -> dict[str, Any]:
                     "registrant_interpretation": record.get("registrant_interpretation"),
                 })
             grouped_people = individual_aircraft.groupby(
-                ["person_name", "registrant_city", "registrant_state"], dropna=False
+                ["person_name", "registrant_city", "registrant_state", "registrant_country"], dropna=False
             )
-            for (person_name, city, state), group in grouped_people:
+            for (person_name, city, state, country), group in grouped_people:
                 models = sorted({
                     " ".join(str(x) for x in [record.get("manufacturer"), record.get("model")] if x and str(x) != "nan").strip()
                     for record in group.to_dict("records")
@@ -304,6 +308,7 @@ def export_faa() -> dict[str, Any]:
                     "person_name": person_name,
                     "registrant_city": city,
                     "registrant_state": state,
+                    "registrant_country": country,
                     "registered_aircraft_count": len(tails),
                     "aircraft_models": " | ".join(models[:30]),
                     "sample_n_numbers": " | ".join(tails[:30]),
