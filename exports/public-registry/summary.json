@@ -1,5 +1,5 @@
 {
-  "run_at_utc": "2026-11-07T17:53:04.076984+00:00",
+  "run_at_utc": "2026-11-07T18:14:14.913601+00:00",
   "sources": {
     "FAA/OpenAirDocs": {
       "schema_probe": {
@@ -113,7 +113,7 @@
       "faa_part145_station_rows": 5080
     },
     "Norway/BRREG": {
-      "brreg_companies": 38399,
+      "brreg_companies": 38709,
       "brreg_people_roles": 2607,
       "brreg_role_companies_queried": 500,
       "brreg_api_failures": 0

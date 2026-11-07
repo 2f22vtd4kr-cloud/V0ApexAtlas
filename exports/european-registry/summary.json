@@ -1,0 +1,31 @@
+{
+  "run_at_utc": "2026-11-07T18:19:55.599542+00:00",
+  "sources": {
+    "ARES Czechia": {
+      "companies": 147,
+      "terms_queried": 13,
+      "unique_ico": 147,
+      "failures": 4
+    },
+    "BODACC France": {
+      "announcements": 966,
+      "terms_queried": 12,
+      "unique_announcement_ids": 966,
+      "failures": 0
+    }
+  },
+  "controls": [
+    "ARES entries are legal-entity records; no person or beneficial owner is inferred.",
+    "BODACC records are commercial-announcement evidence, not a master company register.",
+    "People named in announcements are not exported as standalone HNWI candidates.",
+    "No personal addresses, personal contact details, birth dates, or private identifiers are exported.",
+    "All records remain source-backed, shallow and unqualified until Apex Bureau review."
+  ],
+  "errors": [],
+  "export_files": [
+    "ares_failures.json",
+    "bodacc_failures.json",
+    "czech_ares_companies.csv",
+    "france_bodacc_commercial_announcements.csv"
+  ]
+}

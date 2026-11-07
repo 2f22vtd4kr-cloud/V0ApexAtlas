@@ -1,0 +1,18 @@
+[
+  {
+    "term": "development",
+    "error": "400 Client Error:  for url: https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/vyhledat"
+  },
+  {
+    "term": "stavby",
+    "error": "400 Client Error:  for url: https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/vyhledat"
+  },
+  {
+    "term": "invest",
+    "error": "400 Client Error:  for url: https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/vyhledat"
+  },
+  {
+    "term": "stavební",
+    "error": "400 Client Error:  for url: https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/vyhledat"
+  }
+]
