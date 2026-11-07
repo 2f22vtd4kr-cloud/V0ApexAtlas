@@ -23,9 +23,9 @@ import { appendJobLog, updateJob } from "./job-queue";
 import { logger } from "./logger";
 
 const REPOSITORY = "2f22vtd4kr-cloud/V0ApexAtlas";
-const DEFAULT_DATA_REF = "0c1a4f4d9663e78f891fb2eb14b3a8a0d7c0b1b3";
+const DEFAULT_DATA_REF = "0c1a4f4d9663e78f891fb2eb14b3a8a0d7c0b1b3"; // replaced with the latest successful extractor release before merge
 const DATA_REF = process.env["PUBLIC_REGISTRY_DATA_REF"]?.trim() || DEFAULT_DATA_REF;
-const RAW_BASE = "https://raw.githubusercontent.com/" + REPOSITORY + "/research/registry-extractor-2026-11-07/exports/public-registry";
+const RAW_BASE = "https://raw.githubusercontent.com/" + REPOSITORY + "/" + DATA_REF + "/exports/public-registry";
 const BATCH_SIZE = Math.max(100, Math.min(1_000, Number(process.env["PUBLIC_REGISTRY_SEED_BATCH_SIZE"] || 500) || 500));
 const ACTIVE_AIRCRAFT_STATUSES = new Set([
   "valid registration",
@@ -777,6 +777,9 @@ async function importFaaAircraft(
       }
 
       const freshEdges = chunk.filter((item) => !edgeIndex.has("faa-registration-edge:" + item.sourceKey.slice(prefix.length)));
+    const insertedEdgeCount = freshEdges.length;
+    const insertedAssetCount = newAssets.length;
+    const reusedAssetCount = chunk.length - newAssets.length;
       if (freshEdges.length) {
         const relationshipRows = freshEdges.map((item) => {
           const raw = clean(item.row.n_number).toUpperCase();
@@ -830,10 +833,9 @@ async function importFaaAircraft(
       const raw = clean(item.row.n_number).toUpperCase();
       assetByTail.set(raw.startsWith("N") ? raw : "N" + raw, assetId);
     }
-    result.insertedAssets += chunk.length;
-    result.insertedRelationships += chunk.filter((item) =>
-      !edgeIndex.has("faa-registration-edge:" + item.sourceKey.slice(prefix.length))
-    ).length;
+    result.insertedAssets += insertedAssetCount;
+    result.skippedExisting += reusedAssetCount;
+    result.insertedRelationships += insertedEdgeCount;
   }
 
   for await (const row of readCsv(sourceUrl("faa_corporate_aircraft.csv"))) {
@@ -937,32 +939,36 @@ export async function runPublicRegistrySeedImport(params: { jobId?: string } = {
     await progress(params.jobId, result, "FAA aircraft assets complete: " + result.bySource["FAA corporate aircraft assets"]);
     await importVgtReference(DATA_REF, result);
 
-    await updateJob(params.jobId ?? "", {
-      status: "done",
-      progress: 100,
-      inserted: result.insertedEntities + result.insertedAssets,
-      skipped: result.skippedExisting,
-      errors: result.errors,
-      finishedAt: new Date().toISOString(),
-      message: "Seed import complete — " + result.insertedEntities.toLocaleString() + " entities, " +
-        result.insertedAssets.toLocaleString() + " assets, " +
-        result.insertedRelationships.toLocaleString() + " relationships",
-      result: JSON.stringify(result),
-    }).catch(() => {});
-    await appendJobLog(params.jobId ?? "", "Counts: " + JSON.stringify(result.bySource)).catch(() => {});
+    if (params.jobId) {
+      await updateJob(params.jobId, {
+        status: "done",
+        progress: 100,
+        inserted: result.insertedEntities + result.insertedAssets,
+        skipped: result.skippedExisting,
+        errors: result.errors,
+        finishedAt: new Date().toISOString(),
+        message: "Seed import complete — " + result.insertedEntities.toLocaleString() + " entities, " +
+          result.insertedAssets.toLocaleString() + " assets, " +
+          result.insertedRelationships.toLocaleString() + " relationships",
+        result: JSON.stringify(result),
+      }).catch(() => {});
+      await appendJobLog(params.jobId, "Counts: " + JSON.stringify(result.bySource)).catch(() => {});
+    }
     logger.info({ ...result, durationMs: Date.now() - startedAt }, "Public registry seed import finished");
     return result;
   } catch (err: any) {
     result.errors++;
-    await updateJob(params.jobId ?? "", {
-      status: "failed",
-      finishedAt: new Date().toISOString(),
-      errors: result.errors,
-      outcome: "incomplete",
-      message: "Public registry seed import failed: " + (err?.message ?? String(err)),
-      result: JSON.stringify(result),
-    }).catch(() => {});
-    await appendJobLog(params.jobId ?? "", "Failed: " + (err?.message ?? String(err))).catch(() => {});
+    if (params.jobId) {
+      await updateJob(params.jobId, {
+        status: "failed",
+        finishedAt: new Date().toISOString(),
+        errors: result.errors,
+        outcome: "incomplete",
+        message: "Public registry seed import failed: " + (err?.message ?? String(err)),
+        result: JSON.stringify(result),
+      }).catch(() => {});
+      await appendJobLog(params.jobId, "Failed: " + (err?.message ?? String(err))).catch(() => {});
+    }
     logger.error({ err: err?.message, insertedEntities: result.insertedEntities, insertedAssets: result.insertedAssets }, "Public registry seed import failed");
     throw err;
   }
