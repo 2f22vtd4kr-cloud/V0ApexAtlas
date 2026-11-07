@@ -23,7 +23,7 @@ import { appendJobLog, updateJob } from "./job-queue";
 import { logger } from "./logger";
 
 const REPOSITORY = "2f22vtd4kr-cloud/V0ApexAtlas";
-const DEFAULT_DATA_REF = "0c1a4f4d9663e78f891fb2eb14b3a8a0d7c0b1b3"; // replaced with the latest successful extractor release before merge
+const DEFAULT_DATA_REF = "04e424690df4bdd2c5a22ee672b4194bfccb710e"; // successful extractor release: FAA + BRREG; see exports/public-registry/summary.json
 const DATA_REF = process.env["PUBLIC_REGISTRY_DATA_REF"]?.trim() || DEFAULT_DATA_REF;
 const RAW_BASE = "https://raw.githubusercontent.com/" + REPOSITORY + "/" + DATA_REF + "/exports/public-registry";
 const BATCH_SIZE = Math.max(100, Math.min(1_000, Number(process.env["PUBLIC_REGISTRY_SEED_BATCH_SIZE"] || 500) || 500));
