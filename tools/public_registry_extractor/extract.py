@@ -2,11 +2,13 @@
 """
 Source-backed, resumable public-registry extractor.
 
-Outputs intentionally separate organizations and people. FAA individual
-registrants are excluded: the FAA table is used only for clearly identifiable
-legal-entity registrants and corporate aircraft records. BRREG person records
-contain only published business roles; date of birth, personal identifiers,
-postal/residential addresses and other personal fields are never exported.
+Outputs separate organizations, people, and assets. FAA individual registrants
+are exported only into a narrow review-only cohort: individual registrant type
+with turbine aircraft, multi-engine fixed-wing aircraft, or rotorcraft. The
+extract includes coarse city/state only, never street/ZIP/home coordinates or
+personal contact details. It is an asset-signal candidate list, not proof of
+wealth, beneficial title, or contactability. BRREG people contain official
+business roles only; no birth dates, personal identifiers, or addresses.
 """
 from __future__ import annotations
 
@@ -126,6 +128,7 @@ def export_faa() -> dict[str, Any]:
             "registrant_name": "r.registrant_name",
             "registrant_city": col("r", "registrant_city", reg_cols),
             "registrant_state": col("r", "registrant_state", reg_cols),
+            "registrant_country": col("r", "registrant_country", reg_cols),
             "serial_number": col("r", "serial_number", reg_cols),
             "year_manufactured": col("r", "year_manufactured", reg_cols),
             "status": col("r", "status", reg_cols),
@@ -219,6 +222,89 @@ def export_faa() -> dict[str, Any]:
             })
         companies.sort(key=lambda x: (-x["registered_aircraft_count"], x["organization"].casefold()))
 
+        # Narrow person-owner review cohort: only individual FAA registrant type
+        # with turbine aircraft, multi-engine fixed-wing aircraft or rotorcraft.
+        # Never export street address, ZIP, private phone, or home coordinates.
+        registrant_type_col = registration_fields["type_registrant"]
+        if registrant_type_col == "NULL":
+            raise RuntimeError("FAA schema has no registrant_type; cannot safely separate person records")
+
+        individual_query = f"""
+            SELECT {projection}
+            FROM read_parquet('{reg_url}') r
+            LEFT JOIN read_parquet('{model_url}') m
+              ON m.code = r.aircraft_model_code
+            WHERE CAST(r.registrant_type AS VARCHAR) = '1'
+              AND r.registrant_name IS NOT NULL
+              AND r.status IN ('Valid registration', 'First renewal notice')
+        """
+        individual_aircraft = con.execute(individual_query).fetchdf()
+        if not individual_aircraft.empty:
+            engine_text = individual_aircraft["type_engine"].fillna("").astype(str)
+            aircraft_text = individual_aircraft["type_aircraft"].fillna("").astype(str)
+            qualifies = (
+                engine_text.str.contains(r"Turbo-prop|Turbo-shaft|Turbo-jet|Turbo-fan", case=False, regex=True)
+                | aircraft_text.str.contains(r"Fixed wing multi engine|Rotorcraft", case=False, regex=True)
+            )
+            individual_aircraft = individual_aircraft[qualifies].copy()
+
+        def normalize_faa_person(raw: str) -> str:
+            parts = str(raw or "").strip().split()
+            if len(parts) > 1:
+                # FAA individual registrants use LAST FIRST [MIDDLE...] ordering.
+                parts = parts[1:] + [parts[0]]
+            return " ".join(part[:1].upper() + part[1:].lower() for part in parts)
+
+        person_asset_rows: list[dict[str, Any]] = []
+        person_groups: list[dict[str, Any]] = []
+        if not individual_aircraft.empty:
+            individual_aircraft["person_name"] = individual_aircraft["registrant_name"].apply(normalize_faa_person)
+            individual_aircraft["source_record_url"] = individual_aircraft["n_number"].apply(
+                lambda n: f"https://openairdocs.org/aircraft/{n}"
+            )
+            individual_aircraft["registrant_interpretation"] = (
+                "FAA publishes this person as the aircraft registrant; this is not independent proof of beneficial title or personal wealth"
+            )
+            for record in individual_aircraft.to_dict("records"):
+                person_asset_rows.append({
+                    "person_name": record.get("person_name"),
+                    "registrant_city": record.get("registrant_city"),
+                    "registrant_state": record.get("registrant_state"),
+                    "n_number": record.get("n_number"),
+                    "status": record.get("status"),
+                    "manufacturer": record.get("manufacturer"),
+                    "model": record.get("model"),
+                    "serial_number": record.get("serial_number"),
+                    "year_manufactured": record.get("year_manufactured"),
+                    "type_aircraft": record.get("type_aircraft"),
+                    "type_engine": record.get("type_engine"),
+                    "registrant_type": "Individual",
+                    "source_record_url": record.get("source_record_url"),
+                    "registrant_interpretation": record.get("registrant_interpretation"),
+                })
+            grouped_people = individual_aircraft.groupby(
+                ["person_name", "registrant_city", "registrant_state"], dropna=False
+            )
+            for (person_name, city, state), group in grouped_people:
+                models = sorted({
+                    " ".join(str(x) for x in [record.get("manufacturer"), record.get("model")] if x and str(x) != "nan").strip()
+                    for record in group.to_dict("records")
+                })
+                tails = sorted({str(x) for x in group["n_number"].dropna().tolist()})
+                person_groups.append({
+                    "person_name": person_name,
+                    "registrant_city": city,
+                    "registrant_state": state,
+                    "registered_aircraft_count": len(tails),
+                    "aircraft_models": " | ".join(models[:30]),
+                    "sample_n_numbers": " | ".join(tails[:30]),
+                    "source_name": "OpenAirDocs current FAA aircraft registration table (registrant_type=Individual)",
+                    "source_url": "https://openairdocs.org/aircraft",
+                    "identity_interpretation": "FAA individual registrant record; public registry identity only",
+                    "wealth_interpretation": "Review-only aviation asset signal; no personal net-worth conclusion",
+                    "contactability_status": "No personal contact details exported; requires separate public professional contact research",
+                })
+
         # Current Part 145 repair-station directory: public business-service
         # organizations with certificate identifiers and commercial contact routes.
         repair_url = OPENAIR_BASE + "faa_repair_station.parquet"
@@ -266,11 +352,19 @@ def export_faa() -> dict[str, Any]:
             "faa_corporate_aircraft": write_csv(
                 OUT / "faa_corporate_aircraft.csv", asset_rows
             ),
+            "faa_individual_candidates": write_csv(
+                OUT / "faa_individual_candidates.csv", person_groups
+            ),
+            "faa_individual_aircraft": write_csv(
+                OUT / "faa_individual_aircraft.csv", person_asset_rows
+            ),
             "faa_part145_repair_stations": write_csv(
                 OUT / "faa_part145_repair_stations.csv", station_rows
             ),
             "faa_unique_corporate_registrants": len(companies),
             "faa_aircraft_rows_for_corporate_registrants": len(asset_rows),
+            "faa_individual_review_candidates": len(person_groups),
+            "faa_individual_aircraft_rows": len(person_asset_rows),
             "faa_part145_station_rows": len(station_rows),
         }
         return counts
