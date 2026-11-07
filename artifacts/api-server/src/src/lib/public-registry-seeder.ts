@@ -705,14 +705,133 @@ async function importBrregManagingDirectors(
   result.bySource["BRREG managing-director role cards"] = index.size;
 }
 
-async function importFaaAircraft(
+async function importFaaIndividualCandidates(
   datasetVersion: string,
-  faaCompanyIds: Map<string, number>,
+  result: PublicRegistrySeedResult,
+): Promise<Map<string, number>> {
+  const prefix = "faa-individual-person:";
+  const index = await loadSeedIndex(prefix);
+  const personIds = new Map<string, number>();
+  for (const [sourceKey, row] of index) {
+    const entityId = row.entityId;
+    if (!entityId) continue;
+    const metadataRow = await db.select({ name: entitiesTable.name, metadata: entitiesTable.metadata })
+      .from(entitiesTable).where(eq(entitiesTable.id, entityId)).limit(1).then((rows) => rows[0]);
+    if (!metadataRow) continue;
+    try {
+      const meta = JSON.parse(metadataRow.metadata ?? "{}") as Record<string, any>;
+      const location = meta.faaRegistrantArea ?? {};
+      personIds.set(normalize(metadataRow.name) + "|" + normalize(String(location.city ?? "")) + "|" + normalize(String(location.state ?? "")), entityId);
+    } catch { /* ignore malformed metadata */ }
+  }
+
+  let batch: EntitySeed[] = [];
+  const pendingKeys: string[] = [];
+  for await (const row of readCsv(sourceUrl("faa_individual_candidates.csv"))) {
+    const name = clean(row.person_name);
+    const city = clean(row.registrant_city);
+    const state = clean(row.registrant_state);
+    const locationKey = normalize(name) + "|" + normalize(city) + "|" + normalize(state);
+    if (name.split(/\s+/).length < 2 || name.length < 5) {
+      result.skippedRows++;
+      continue;
+    }
+    const key = prefix + hash(locationKey);
+    if (index.has(key)) {
+      result.skippedExisting++;
+      const existing = index.get(key)?.entityId;
+      if (existing) personIds.set(locationKey, existing);
+      continue;
+    }
+    const models = clean(row.aircraft_models).split("|").map((x) => x.trim()).filter(Boolean);
+    const tails = clean(row.sample_n_numbers).split("|").map((x) => x.trim()).filter(Boolean);
+    const metadata = {
+      source: "faa-aircraft-registry-individual-registrant",
+      registryId: "OpenAirDocs — FAA Aircraft Registry",
+      faaRegistrantType: "Individual",
+      faaRegistrantArea: { city: city || null, state: state || null },
+      registeredAircraftCount: asNumber(clean(row.registered_aircraft_count)) ?? tails.length,
+      aircraftModelSamples: models.slice(0, 30),
+      sampleNNumbers: tails.slice(0, 30),
+      sourceUrl: clean(row.source_url),
+      publicRegistrySeed: {
+        sourceKey: key,
+        datasetVersion,
+        seedKind: "FAA_INDIVIDUAL_AIRCRAFT_REGISTRANT",
+        seedTier: "review-only-aircraft-signal",
+        researchEligible: true,
+        researchState: "queued",
+        classification: "HNWI candidate only; not confirmed wealth",
+        registrantIsBeneficialOwner: false,
+        personalWealth: "not-assessed",
+        contactability: "no-personal-contact-details-exported",
+      },
+    };
+    batch.push({
+      sourceKey: key,
+      sourceName: "OpenAirDocs — FAA Aircraft Registry (individual registrant)",
+      recordType: "person_candidate",
+      entity: {
+        name,
+        type: "HNWI",
+        bayesianScore: 0.2,
+        nationality: "US",
+        estimatedNetWorth: null,
+        knownResidences: null,
+        email: null,
+        phone: null,
+        phoneSource: null,
+        contactMethod: null,
+        notes: "FAA currently lists this individual as registrant of " +
+          (asNumber(clean(row.registered_aircraft_count)) ?? tails.length) +
+          " qualifying aircraft. This is a review-only aviation asset signal, not verified beneficial ownership, personal net worth, a direct contact route, or proof of access.",
+        sourceRegistries: JSON.stringify(["OpenAirDocs — FAA Aircraft Registry"]),
+        metadata: JSON.stringify(metadata),
+        isHot: false,
+        isStarred: false,
+        isHidden: false,
+        contactConfidence: 0,
+        contactOutcome: "evidence_only",
+        cookedAt: null,
+      },
+    });
+    pendingKeys.push(locationKey);
+    if (batch.length >= BATCH_SIZE) {
+      const saved = await insertEntityBatch(batch, index, datasetVersion);
+      result.insertedEntities += saved.inserted;
+      result.skippedExisting += saved.skipped;
+      for (let i = 0; i < batch.length; i++) {
+        const id = index.get(batch[i]!.sourceKey)?.entityId;
+        if (id) personIds.set(pendingKeys[i]!, id);
+      }
+      batch = [];
+      pendingKeys.length = 0;
+    }
+  }
+  if (batch.length) {
+    const saved = await insertEntityBatch(batch, index, datasetVersion);
+    result.insertedEntities += saved.inserted;
+    result.skippedExisting += saved.skipped;
+    for (let i = 0; i < batch.length; i++) {
+      const id = index.get(batch[i]!.sourceKey)?.entityId;
+      if (id) personIds.set(pendingKeys[i]!, id);
+    }
+  }
+  result.bySource["FAA individual HNWI candidates"] = index.size;
+  return personIds;
+}
+
+async function importFaaAircraft(
+  fileName: string,
+  sourcePrefix: string,
+  edgePrefix: string,
+  registrantIds: Map<string, number>,
+  isIndividual: boolean,
+  datasetVersion: string,
   result: PublicRegistrySeedResult,
 ): Promise<void> {
-  const prefix = "faa-aircraft:";
-  const assetIndex = await loadSeedIndex(prefix);
-  const edgeIndex = await loadSeedIndex("faa-registration-edge:");
+  const assetIndex = await loadSeedIndex(sourcePrefix);
+  const edgeIndex = await loadSeedIndex(edgePrefix);
   const oldAssets = await db.select({
     id: assetsTable.id,
     identifier: assetsTable.identifier,
@@ -720,51 +839,61 @@ async function importFaaAircraft(
   }).from(assetsTable).where(eq(assetsTable.category, "Aviation"));
   const assetByTail = new Map<string, number>();
   for (const item of oldAssets) {
-    const id = clean(item.identifier).toUpperCase();
-    if (id) assetByTail.set(id.startsWith("N") ? id : "N" + id, item.id);
+    const raw = clean(item.identifier).toUpperCase();
+    if (raw) assetByTail.set(raw.startsWith("N") ? raw : "N" + raw, item.id);
     try {
       const metadata = JSON.parse(item.metadata ?? "{}") as Record<string, unknown>;
       const nNumber = clean(metadata["nNumber"]).toUpperCase();
       if (nNumber) assetByTail.set(nNumber.startsWith("N") ? nNumber : "N" + nNumber, item.id);
-    } catch { /* old metadata may not be JSON */ }
+    } catch { /* old metadata may be absent */ }
   }
 
-  let batch: Array<{ sourceKey: string; row: CsvRow; registrantId: number; existingAssetId: number | null }> = [];
+  let batch: Array<{ sourceKey: string; row: CsvRow; registrantId: number; existingAssetId: number | null; registrantName: string }> = [];
   async function flush(chunk: typeof batch): Promise<void> {
     if (!chunk.length) return;
     const newAssets = chunk.filter((item) => item.existingAssetId == null);
+    const insertedAssetCount = newAssets.length;
+    const reusedAssetCount = chunk.length - newAssets.length;
+    const freshEdges = chunk.filter((item) => {
+      const tail = clean(item.row.n_number).toUpperCase();
+      return !edgeIndex.has(edgePrefix + (tail.startsWith("N") ? tail : "N" + tail));
+    });
+    const insertedEdgeCount = freshEdges.length;
     const assetIdByKey = new Map<string, number>();
+
     await db.transaction(async (tx) => {
       let created: Array<{ id: number }> = [];
       if (newAssets.length) {
         created = await tx.insert(assetsTable).values(newAssets.map((item) => {
-          const row = item.row;
-          const tailValue = clean(row.n_number).toUpperCase();
+          const tailValue = clean(item.row.n_number).toUpperCase();
           const tail = tailValue.startsWith("N") ? tailValue : "N" + tailValue;
-          const model = [clean(row.manufacturer), clean(row.model)].filter(Boolean).join(" ");
+          const model = [clean(item.row.manufacturer), clean(item.row.model)].filter(Boolean).join(" ");
           return {
             category: "Aviation",
             identifier: tail,
             jurisdiction: "FAA",
-            description: (model || "Aircraft") + (clean(row.year_manufactured) ? " · MFR year " + clean(row.year_manufactured) : "") +
-              " · Registered to " + clean(row.registrant_name) + " (registrant only; beneficial owner not established)",
+            description: (model || "Aircraft") +
+              (clean(item.row.year_manufactured) ? " · MFR year " + clean(item.row.year_manufactured) : "") +
+              " · FAA registrant: " + item.registrantName + " (registrant only; beneficial owner not independently established)",
             estimatedValue: null,
             address: null,
             lastActivityDate: null,
             sourceRegistry: "OpenAirDocs — FAA Aircraft Registration (public data)",
             ownerEntityId: null,
             metadata: JSON.stringify({
-              source: "faa-aircraft-registry",
+              source: isIndividual ? "faa-aircraft-registry-individual-registrant" : "faa-aircraft-registry-corporate-registrant",
               sourceKey: item.sourceKey,
               nNumber: tail,
-              registrantName: clean(row.registrant_name),
-              typeAircraft: clean(row.type_aircraft) || null,
-              typeEngine: clean(row.type_engine) || null,
-              numEngines: clean(row.num_engines) || null,
-              serialNumber: clean(row.serial_number) || null,
-              yearManufactured: clean(row.year_manufactured) || null,
-              registrationStatus: clean(row.status),
-              beneficialOwner: "not-established",
+              registrantName: item.registrantName,
+              registrantClass: isIndividual ? "Individual" : "Legal entity",
+              city: clean(item.row.registrant_city) || null,
+              state: clean(item.row.registrant_state) || null,
+              typeAircraft: clean(item.row.type_aircraft) || null,
+              typeEngine: clean(item.row.type_engine) || null,
+              serialNumber: clean(item.row.serial_number) || null,
+              yearManufactured: clean(item.row.year_manufactured) || null,
+              registrationStatus: clean(item.row.status),
+              beneficialOwner: "not-independently-established",
               personalWealth: "not-assessed",
               publicRegistrySeed: { datasetVersion, seedTier: "asset-evidence-only" },
             }),
@@ -776,34 +905,35 @@ async function importFaaAircraft(
         if (item.existingAssetId != null) assetIdByKey.set(item.sourceKey, item.existingAssetId);
       }
 
-      const freshEdges = chunk.filter((item) => !edgeIndex.has("faa-registration-edge:" + item.sourceKey.slice(prefix.length)));
-    const insertedEdgeCount = freshEdges.length;
-    const insertedAssetCount = newAssets.length;
-    const reusedAssetCount = chunk.length - newAssets.length;
       if (freshEdges.length) {
         const relationshipRows = freshEdges.map((item) => {
-          const raw = clean(item.row.n_number).toUpperCase();
-          const tail = raw.startsWith("N") ? raw : "N" + raw;
+          const tailRaw = clean(item.row.n_number).toUpperCase();
+          const tail = tailRaw.startsWith("N") ? tailRaw : "N" + tailRaw;
           return {
             sourceEntityId: item.registrantId,
             targetId: assetIdByKey.get(item.sourceKey)!,
             targetType: "Asset",
             relationshipType: "FAA_REGISTRANT_OF",
             strength: 0.5,
-            notes: "FAA establishes the registered-entity link for " + tail +
-              "; this is not proof of beneficial ownership, personal use, passengers, wealth, or direct access. Source: " +
+            notes: "FAA identifies " + item.registrantName + " as the registered " +
+              (isIndividual ? "person" : "legal entity") + " for " + tail +
+              "; this is not independent proof of beneficial ownership, personal use, passengers, wealth, or direct access. Source: " +
               clean(item.row.source_record_url),
           };
         });
-        const insertedRelationships = await tx.insert(relationshipsTable).values(relationshipRows).returning({ id: relationshipsTable.id });
-        await tx.insert(publicRegistrySeedRecordsTable).values(insertedRelationships.map((_, i) => ({
-          sourceKey: "faa-registration-edge:" + freshEdges[i]!.sourceKey.slice(prefix.length),
-          recordType: "relationship",
-          sourceName: "OpenAirDocs — FAA Aircraft Registry",
-          datasetVersion,
-          entityId: freshEdges[i]!.registrantId,
-          assetId: assetIdByKey.get(freshEdges[i]!.sourceKey)!,
-        })));
+        await tx.insert(relationshipsTable).values(relationshipRows);
+        await tx.insert(publicRegistrySeedRecordsTable).values(freshEdges.map((item) => {
+          const tailRaw = clean(item.row.n_number).toUpperCase();
+          const tail = tailRaw.startsWith("N") ? tailRaw : "N" + tailRaw;
+          return {
+            sourceKey: edgePrefix + tail,
+            recordType: "relationship",
+            sourceName: "OpenAirDocs — FAA Aircraft Registry",
+            datasetVersion,
+            entityId: item.registrantId,
+            assetId: assetIdByKey.get(item.sourceKey)!,
+          };
+        }));
       }
       await tx.insert(publicRegistrySeedRecordsTable).values(chunk.map((item) => ({
         sourceKey: item.sourceKey,
@@ -816,6 +946,8 @@ async function importFaaAircraft(
     });
 
     for (const item of chunk) {
+      const tailRaw = clean(item.row.n_number).toUpperCase();
+      const tail = tailRaw.startsWith("N") ? tailRaw : "N" + tailRaw;
       const assetId = assetIdByKey.get(item.sourceKey)!;
       assetIndex.set(item.sourceKey, {
         sourceKey: item.sourceKey,
@@ -823,42 +955,47 @@ async function importFaaAircraft(
         relatedEntityId: null,
         assetId,
       });
-      const edgeKey = "faa-registration-edge:" + item.sourceKey.slice(prefix.length);
-      edgeIndex.set(edgeKey, {
-        sourceKey: edgeKey,
+      edgeIndex.set(edgePrefix + tail, {
+        sourceKey: edgePrefix + tail,
         entityId: item.registrantId,
         relatedEntityId: null,
         assetId,
       });
-      const raw = clean(item.row.n_number).toUpperCase();
-      assetByTail.set(raw.startsWith("N") ? raw : "N" + raw, assetId);
+      assetByTail.set(tail, assetId);
     }
     result.insertedAssets += insertedAssetCount;
     result.skippedExisting += reusedAssetCount;
     result.insertedRelationships += insertedEdgeCount;
   }
 
-  for await (const row of readCsv(sourceUrl("faa_corporate_aircraft.csv"))) {
+  for await (const row of readCsv(sourceUrl(fileName))) {
     const status = clean(row.status).toLowerCase();
-    const rawTail = clean(row.n_number).toUpperCase();
-    const registrant = clean(row.registrant_name);
-    if (!rawTail || !registrant || !ACTIVE_AIRCRAFT_STATUSES.has(status)) {
+    const tailRaw = clean(row.n_number).toUpperCase();
+    const registrantName = isIndividual ? clean(row.person_name) : clean(row.registrant_name);
+    if (!tailRaw || !registrantName || !ACTIVE_AIRCRAFT_STATUSES.has(status)) {
       result.skippedRows++;
       continue;
     }
-    const registrantId = faaCompanyIds.get(normalize(registrant));
+    const personKey = normalize(registrantName) + "|" + normalize(clean(row.registrant_city)) + "|" + normalize(clean(row.registrant_state));
+    const registrantId = registrantIds.get(isIndividual ? personKey : normalize(registrantName));
     if (!registrantId) { result.skippedRows++; continue; }
-    const tail = rawTail.startsWith("N") ? rawTail : "N" + rawTail;
-    const key = prefix + tail;
+    const tail = tailRaw.startsWith("N") ? tailRaw : "N" + tailRaw;
+    const key = sourcePrefix + tail;
     if (assetIndex.has(key)) { result.skippedExisting++; continue; }
-    batch.push({ sourceKey: key, row, registrantId, existingAssetId: assetByTail.get(tail) ?? null });
+    batch.push({
+      sourceKey: key,
+      row,
+      registrantId,
+      existingAssetId: assetByTail.get(tail) ?? null,
+      registrantName,
+    });
     if (batch.length >= BATCH_SIZE) {
       await flush(batch);
       batch = [];
     }
   }
   if (batch.length) await flush(batch);
-  result.bySource["FAA corporate aircraft assets"] = assetIndex.size;
+  result.bySource[isIndividual ? "FAA individual aircraft assets" : "FAA corporate aircraft assets"] = assetIndex.size;
 }
 
 async function importVgtReference(datasetVersion: string, result: PublicRegistrySeedResult): Promise<void> {
@@ -935,8 +1072,12 @@ export async function runPublicRegistrySeedImport(params: { jobId?: string } = {
     await progress(params.jobId, result, "FAA repair stations complete: " + result.bySource["FAA repair stations"]);
     await importBrregManagingDirectors(DATA_REF, orgnrToEntityId, result);
     await progress(params.jobId, result, "BRREG managing-director candidates complete: " + result.bySource["BRREG managing-director role cards"]);
-    await importFaaAircraft(DATA_REF, faaCompanyIds, result);
-    await progress(params.jobId, result, "FAA aircraft assets complete: " + result.bySource["FAA corporate aircraft assets"]);
+    const faaIndividualIds = await importFaaIndividualCandidates(DATA_REF, result);
+    await progress(params.jobId, result, "FAA individual HNWI candidates complete: " + result.bySource["FAA individual HNWI candidates"]);
+    await importFaaAircraft("faa_corporate_aircraft.csv", "faa-aircraft:", "faa-registration-edge:", faaCompanyIds, false, DATA_REF, result);
+    await progress(params.jobId, result, "FAA corporate aircraft assets complete: " + result.bySource["FAA corporate aircraft assets"]);
+    await importFaaAircraft("faa_individual_aircraft.csv", "faa-individual-aircraft:", "faa-individual-registration-edge:", faaIndividualIds, true, DATA_REF, result);
+    await progress(params.jobId, result, "FAA individual aircraft assets complete: " + result.bySource["FAA individual aircraft assets"]);
     await importVgtReference(DATA_REF, result);
 
     if (params.jobId) {
