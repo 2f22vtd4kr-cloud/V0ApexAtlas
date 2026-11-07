@@ -36,7 +36,7 @@ jobs:
       - name: Install extractor dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install duckdb>=1.2.0 pandas requests pyarrow
+          python -m pip install 'duckdb>=1.2.0' pandas requests pyarrow
 
       - name: Extract FAA and Norwegian registry tables
         run: python -u tools/public_registry_extractor/extract.py
