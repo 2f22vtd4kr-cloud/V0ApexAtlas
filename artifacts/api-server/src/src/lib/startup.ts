@@ -1,4 +1,58 @@
 /**
+ * Idempotent public registry seed bootstrap.
+ *
+ * This runs before the empty/populated DB decision so a fresh Replit import
+ * receives the committed source snapshot even when broad discovery is disabled.
+ * The source-key ledger makes subsequent boots safe: unchanged records are
+ * skipped, new source rows are admitted, and seeded entities retain
+ * cookedAt=NULL so the Bureau can research them later.
+ */
+async function runPublicRegistrySeedBootstrap(): Promise<void> {
+  if (process.env["ENABLE_PUBLIC_REGISTRY_SEEDS"] === "false") {
+    logger.info("Public registry seed bootstrap disabled by configuration");
+    return;
+  }
+  const activeJobId = await getActiveJob("public-registry-seed");
+  if (activeJobId) {
+    const activeJob = await getJob(activeJobId);
+    if (activeJob?.status === "running" || activeJob?.status === "queued") {
+      logger.info({ activeJobId }, "Public registry seed import already active; skipping duplicate boot trigger");
+      return;
+    }
+    await clearActiveJob("public-registry-seed");
+  }
+
+  const jobId = await createJob("public-registry-seed");
+  await setActiveJob("public-registry-seed", jobId);
+  try {
+    await updateJob(jobId, {
+      status: "running",
+      progress: 0,
+      message: "Importing versioned FAA and BRREG public registry cards…",
+    });
+    const result = await runPublicRegistrySeedImport({ jobId });
+    logger.info({
+      jobId,
+      insertedEntities: result.insertedEntities,
+      insertedAssets: result.insertedAssets,
+      insertedRelationships: result.insertedRelationships,
+      skippedExisting: result.skippedExisting,
+      bySource: result.bySource,
+    }, "Public registry seed bootstrap completed");
+  } catch (err: any) {
+    logger.error({ jobId, err: err?.message }, "Public registry seed bootstrap failed; server startup will continue");
+    await updateJob(jobId, {
+      status: "failed",
+      outcome: "incomplete",
+      finishedAt: new Date().toISOString(),
+      message: "Public registry seed bootstrap failed: " + (err?.message ?? String(err)),
+    }).catch(() => {});
+  } finally {
+    await clearActiveJob("public-registry-seed").catch(() => {});
+  }
+}
+
+/**
  * Cold-Start Recovery — runs once at API server boot.
  *
  * 1. Clears ghost active-job locks from any prior process that was killed
@@ -38,8 +92,9 @@ import {
 } from "./contact-validation";
 import { materializeBusinessAsset } from "./business-assets";
 import { resumeContactResearchAfterRestart } from "./contact-research-orchestrator";
+import { runPublicRegistrySeedImport } from "./public-registry-seeder";
 
-const INGESTOR_TYPES = ["faa", "land-registry", "western-hnwi", "companies-house-enrich", "occrp", "opensky", "improve", "web-osint", "bulk-hybrid-research", "in-house-enrich", "deep-web-osint", "compute-embeddings", "social-discovery", "messenger-discovery", "foundation-filings", "broad-discovery", "atlas-run", "phase-j-pass", "contact-research"] as const;
+const INGESTOR_TYPES = ["faa", "land-registry", "western-hnwi", "companies-house-enrich", "occrp", "opensky", "improve", "web-osint", "bulk-hybrid-research", "in-house-enrich", "deep-web-osint", "compute-embeddings", "social-discovery", "messenger-discovery", "foundation-filings", "broad-discovery", "atlas-run", "phase-j-pass", "contact-research", "public-registry-seed"] as const;
 // Startup maintenance is fire-and-forget and the HTTP server can accept a
 // request before it reaches clearGhostJobs(). Only jobs created before this
 // process boot are eligible for recovery; otherwise a legitimate new request
@@ -1245,6 +1300,10 @@ export async function coldStartRecovery(): Promise<void> {
   await clearGhostJobs();
   await resumeContactResearchAfterRestart();
 
+  // Import the versioned public registry snapshot before the DB
+  // empty/populated branch and before the automatic research scheduler.
+  await runPublicRegistrySeedBootstrap();
+
   // Always verify/install Python OSINT tools — survives re-imports automatically.
   // This runs regardless of ENABLE_AUTO_PIPELINE so tools are ready before research.
   verifyAndInstallPythonTools().catch((err: any) =>
@@ -1314,7 +1373,12 @@ export async function coldStartRecovery(): Promise<void> {
    triggerHttp("broad discovery (cold-start)", "/api/ingest/broad-discovery", { maxQueries: 15, rotateTemplates: true });
 
   // Phase 1: Registry ingestion (runs in parallel — provides verification data)
-  startIngestor("faa",            runFaaIngestion,           { force: false });
+  // The versioned public-registry seeder above replaces the legacy automatic
+  // FAA importer here. The legacy importer remains available via POST /ingest/faa,
+  // but embeds obsolete owner-address and aircraft-value heuristics.
+  if (process.env["ENABLE_LEGACY_FAA_INGESTION"] === "true") {
+    startIngestor("faa", runFaaIngestion, { force: false });
+  }
   startIngestor("land-registry",  runLandRegistryIngestion,  { force: false });
   startIngestor("western-hnwi",   runWesternHnwiIngestion,   { targetCount: 5_000, batchSize: 100 });
 

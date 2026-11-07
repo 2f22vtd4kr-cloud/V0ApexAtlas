@@ -11,3 +11,5 @@ export * from "./research_evidence";
 export * from "./research_run_events";
 export * from "./research_cases";
 export * from "./research_case_events";
+
+export * from "./public_registry_seed_records";

@@ -1,0 +1,38 @@
+name: Public Registry Seed Typecheck
+
+on:
+  push:
+    branches:
+      - research/registry-seed-cards-2026-11-07
+    paths:
+      - "artifacts/api-server/src/src/lib/public-registry-seeder.ts"
+      - "artifacts/api-server/src/src/lib/startup.ts"
+      - "artifacts/api-server/src/src/lib/atlas-orchestrator.ts"
+      - "artifacts/api-server/src/src/routes/ingest.ts"
+      - "artifacts/api-server/src/src/routes/atlas.ts"
+      - "lib/db/src/schema/**"
+      - ".github/workflows/registry-seed-typecheck.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Enable pnpm
+        run: corepack enable && corepack prepare pnpm@10.12.1 --activate
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build shared library declarations
+        run: pnpm run typecheck:libs
+      - name: Verify database schema package
+        run: pnpm --filter @workspace/db exec tsc --noEmit
+      - name: Build production API bundle (Replit build path)
+        run: pnpm --filter @workspace/api-server run build

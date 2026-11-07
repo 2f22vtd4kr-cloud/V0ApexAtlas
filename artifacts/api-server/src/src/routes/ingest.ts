@@ -32,10 +32,11 @@ import { getCache, setCache } from "../lib/redis";
 import { sql, eq } from "drizzle-orm";
 import {
   createJob, updateJob, getJob, getJobLog,
-  setActiveJob, getActiveJob, clearDedup, getDedupCount,
+  setActiveJob, getActiveJob, clearActiveJob, clearDedup, getDedupCount,
 } from "../lib/job-queue";
 import { runWesternHnwiIngestion } from "../lib/western-hnwi-ingestion";
 import { runFaaIngestion } from "../lib/faa-ingestor";
+import { runPublicRegistrySeedImport } from "../lib/public-registry-seeder";
 import { runOccrpEnrichment } from "../lib/enrichment/structured-verification";
 import { runLandRegistryIngestion } from "../lib/land-registry-ingestor";
 import { runOpenSkyEnrichment } from "../lib/opensky-ingestor";
@@ -242,6 +243,53 @@ router.post("/ingest/faa", async (req, res): Promise<void> => {
     message: `FAA aircraft registry ingestion started (up to ${safeMax.toLocaleString()} records).`,
     pollUrl: `/api/ingest/job/${jobId}`,
     note: "Downloads ~70MB from registry.faa.gov. First run takes ~2-3 minutes; subsequent runs use cached ZIP.",
+  });
+});
+
+// ── POST /ingest/public-registry-seeds ────────────────────────────────────────
+// Imports the pinned source snapshot into canonical entity/asset/relationship
+// cards. The importer is idempotent and does not mark entities as researched.
+router.post("/ingest/public-registry-seeds", async (_req, res): Promise<void> => {
+  const existingJobId = await getActiveJob("public-registry-seed");
+  if (existingJobId) {
+    const existing = await getJob(existingJobId);
+    if (existing && (existing.status === "running" || existing.status === "queued")) {
+      res.status(409).json({
+        error: "A public registry seed import is already running.",
+        jobId: existingJobId,
+      });
+      return;
+    }
+    await clearActiveJob("public-registry-seed");
+  }
+
+  const jobId = await createJob("public-registry-seed");
+  await setActiveJob("public-registry-seed", jobId);
+  void (async () => {
+    try {
+      await updateJob(jobId, {
+        status: "running",
+        progress: 0,
+        message: "Importing versioned FAA and BRREG cards…",
+      });
+      await runPublicRegistrySeedImport({ jobId });
+    } catch (err: any) {
+      logger.error({ err: err?.message, jobId }, "Public registry seed import failed");
+      await updateJob(jobId, {
+        status: "failed",
+        outcome: "incomplete",
+        finishedAt: new Date().toISOString(),
+        message: "Public registry seed import failed: " + (err?.message ?? String(err)),
+      }).catch(() => {});
+    } finally {
+      await clearActiveJob("public-registry-seed").catch(() => {});
+    }
+  })();
+
+  res.status(202).json({
+    jobId,
+    pollUrl: "/api/ingest/job/" + jobId,
+    message: "Versioned public registry seed import started. Existing source keys will be skipped.",
   });
 });
 
