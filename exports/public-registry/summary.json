@@ -1,5 +1,5 @@
 {
-  "run_at_utc": "2026-11-07T17:28:34.853576+00:00",
+  "run_at_utc": "2026-11-07T17:37:28.702450+00:00",
   "sources": {
     "FAA/OpenAirDocs": {
       "schema_probe": {
@@ -65,13 +65,17 @@
       },
       "faa_corporate_registrants": 79831,
       "faa_corporate_aircraft": 147308,
+      "faa_individual_candidates": 0,
+      "faa_individual_aircraft": 0,
       "faa_part145_repair_stations": 5080,
       "faa_unique_corporate_registrants": 79831,
       "faa_aircraft_rows_for_corporate_registrants": 147308,
+      "faa_individual_review_candidates": 0,
+      "faa_individual_aircraft_rows": 0,
       "faa_part145_station_rows": 5080
     },
     "Norway/BRREG": {
-      "brreg_companies": 38621,
+      "brreg_companies": 39257,
       "brreg_people_roles": 2607,
       "brreg_role_companies_queried": 500,
       "brreg_api_failures": 0
@@ -92,6 +96,8 @@
     "brreg_api_failures.json",
     "faa_corporate_aircraft.csv",
     "faa_corporate_registrants.csv",
+    "faa_individual_aircraft.csv",
+    "faa_individual_candidates.csv",
     "faa_part145_repair_stations.csv",
     "norway_business_people_roles.csv",
     "norway_real_estate_and_professional_companies.csv",
