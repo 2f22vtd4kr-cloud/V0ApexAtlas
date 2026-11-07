@@ -303,7 +303,7 @@ function faaCompanyKey(name: string): string {
 }
 
 function buildFaaCompanyEntity(
-  record: { name: string; aircraftCount: number; models: string[]; tails: string[]; locations: string[] },
+  record: { name: string; aircraftCount: number; models: string[]; tails: string[]; locations: string[]; registrantCountries: string[] },
   sourceKey: string,
   datasetVersion: string,
 ): EntitySeed {
@@ -325,6 +325,7 @@ function buildFaaCompanyEntity(
     aircraftModelSamples: record.models.slice(0, 30),
     sampleNNumbers: record.tails.slice(0, 30),
     businessLocations: [...new Set(record.locations)].slice(0, 10),
+    registrantCountries: [...new Set(record.registrantCountries)].filter(Boolean),
     publicRegistrySeed: {
       sourceKey,
       datasetVersion,
@@ -344,7 +345,7 @@ function buildFaaCompanyEntity(
       name: record.name,
       type: trust ? "Trust" : "Corporation",
       bayesianScore: researchEligible ? 0.24 : 0.12,
-      nationality: "US",
+      nationality: null,
       estimatedNetWorth: null,
       knownResidences: null,
       email: null,
@@ -487,7 +488,7 @@ async function importFaaRegistrants(
   const index = await loadSeedIndex(prefix);
   // Company name maps to the entity ID; all city/state subrows from the FAA
   // are consolidated before importing one canonical entity.
-  const grouped = new Map<string, { name: string; aircraftCount: number; models: Set<string>; tails: Set<string>; locations: Set<string> }>();
+  const grouped = new Map<string, { name: string; aircraftCount: number; models: Set<string>; tails: Set<string>; locations: Set<string>; registrantCountries: Set<string> }>();
   for await (const row of readCsv(sourceUrl("faa_corporate_registrants.csv"))) {
     const name = clean(row.organization);
     const key = normalize(name);
@@ -498,12 +499,15 @@ async function importFaaRegistrants(
       models: new Set<string>(),
       tails: new Set<string>(),
       locations: new Set<string>(),
+      registrantCountries: new Set<string>(),
     };
     item.aircraftCount += asNumber(clean(row.registered_aircraft_count)) || 0;
     clean(row.aircraft_models).split("|").map((x) => x.trim()).filter(Boolean).forEach((model) => item.models.add(model));
     clean(row.sample_n_numbers).split("|").map((x) => x.trim()).filter(Boolean).forEach((tail) => item.tails.add(tail));
-    const location = [clean(row.registrant_city), clean(row.registrant_state)].filter(Boolean).join(", ");
+    const location = [clean(row.registrant_city), clean(row.registrant_state), clean(row.registrant_country)].filter(Boolean).join(", ");
     if (location) item.locations.add(location);
+    const registrantCountry = clean(row.registrant_country);
+    if (registrantCountry) item.registrantCountries.add(registrantCountry);
     grouped.set(key, item);
   }
 
@@ -517,6 +521,7 @@ async function importFaaRegistrants(
       models: [...item.models].sort().slice(0, 50),
       tails: [...item.tails].sort().slice(0, 50),
       locations: [...item.locations].sort(),
+      registrantCountries: [...item.registrantCountries].sort(),
     }, key, datasetVersion));
     if (batch.length >= BATCH_SIZE) {
       const saved = await insertEntityBatch(batch, index, datasetVersion);
@@ -630,7 +635,7 @@ async function importBrregManagingDirectors(
         name: person,
         type: "Gatekeeper",
         bayesianScore: 0.12,
-        nationality: "NO",
+        nationality: null,
         estimatedNetWorth: null,
         knownResidences: null,
         email: null,
@@ -733,7 +738,8 @@ async function importFaaIndividualCandidates(
     const name = clean(row.person_name);
     const city = clean(row.registrant_city);
     const state = clean(row.registrant_state);
-    const locationKey = normalize(name) + "|" + normalize(city) + "|" + normalize(state);
+    const country = clean(row.registrant_country);
+    const locationKey = normalize(name) + "|" + normalize(city) + "|" + normalize(state) + "|" + normalize(country);
     if (name.split(/\s+/).length < 2 || name.length < 5) {
       result.skippedRows++;
       continue;
@@ -751,7 +757,11 @@ async function importFaaIndividualCandidates(
       source: "faa-aircraft-registry-individual-registrant",
       registryId: "OpenAirDocs — FAA Aircraft Registry",
       faaRegistrantType: "Individual",
-      faaRegistrantArea: { city: city || null, state: state || null },
+      faaRegistrantArea: {
+        city: city || null,
+        state: state || null,
+        registrantCountry: clean(row.registrant_country) || null,
+      },
       registeredAircraftCount: asNumber(clean(row.registered_aircraft_count)) ?? tails.length,
       aircraftModelSamples: models.slice(0, 30),
       sampleNNumbers: tails.slice(0, 30),
@@ -777,7 +787,7 @@ async function importFaaIndividualCandidates(
         name,
         type: "HNWI",
         bayesianScore: 0.2,
-        nationality: "US",
+        nationality: null,
         estimatedNetWorth: null,
         knownResidences: null,
         email: null,
@@ -890,6 +900,7 @@ async function importFaaAircraft(
               registrantClass: isIndividual ? "Individual" : "Legal entity",
               city: clean(item.row.registrant_city) || null,
               state: clean(item.row.registrant_state) || null,
+              registrantCountry: clean(item.row.registrant_country) || null,
               typeAircraft: clean(item.row.type_aircraft) || null,
               typeEngine: clean(item.row.type_engine) || null,
               serialNumber: clean(item.row.serial_number) || null,
@@ -978,7 +989,8 @@ async function importFaaAircraft(
       result.skippedRows++;
       continue;
     }
-    const personKey = normalize(registrantName) + "|" + normalize(clean(row.registrant_city)) + "|" + normalize(clean(row.registrant_state));
+    const personKey = normalize(registrantName) + "|" + normalize(clean(row.registrant_city)) + "|" +
+      normalize(clean(row.registrant_state)) + "|" + normalize(clean(row.registrant_country));
     const registrantId = registrantIds.get(isIndividual ? personKey : normalize(registrantName));
     if (!registrantId) { result.skippedRows++; continue; }
     const tail = tailRaw.startsWith("N") ? tailRaw : "N" + tailRaw;
