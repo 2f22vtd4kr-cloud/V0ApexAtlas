@@ -1,5 +1,5 @@
 {
-  "run_at_utc": "2026-11-07T17:37:28.702450+00:00",
+  "run_at_utc": "2026-11-07T17:53:04.076984+00:00",
   "sources": {
     "FAA/OpenAirDocs": {
       "schema_probe": {
@@ -61,28 +61,66 @@
           "type_engine": "r.engine_type",
           "type_registrant": "r.registrant_type",
           "num_engines": "NULL"
-        }
+        },
+        "registrant_type_counts": [
+          {
+            "registrant_type": "Individual",
+            "rows": 130152
+          },
+          {
+            "registrant_type": "LLC",
+            "rows": 88310
+          },
+          {
+            "registrant_type": "Corporation",
+            "rows": 61598
+          },
+          {
+            "registrant_type": "Co-owned",
+            "rows": 25776
+          },
+          {
+            "registrant_type": "Government",
+            "rows": 5752
+          },
+          {
+            "registrant_type": "Partnership",
+            "rows": 3083
+          },
+          {
+            "registrant_type": "Non-citizen corporation",
+            "rows": 2256
+          },
+          {
+            "registrant_type": NaN,
+            "rows": 1392
+          },
+          {
+            "registrant_type": "Non-citizen co-owned",
+            "rows": 18
+          }
+        ]
       },
-      "faa_corporate_registrants": 79831,
-      "faa_corporate_aircraft": 147308,
-      "faa_individual_candidates": 0,
-      "faa_individual_aircraft": 0,
+      "faa_corporate_registrants": 79786,
+      "faa_corporate_aircraft": 147235,
+      "faa_individual_candidates": 8821,
+      "faa_individual_aircraft": 9985,
       "faa_part145_repair_stations": 5080,
-      "faa_unique_corporate_registrants": 79831,
-      "faa_aircraft_rows_for_corporate_registrants": 147308,
-      "faa_individual_review_candidates": 0,
-      "faa_individual_aircraft_rows": 0,
+      "faa_unique_corporate_registrants": 79786,
+      "faa_aircraft_rows_for_corporate_registrants": 147235,
+      "faa_individual_review_candidates": 8821,
+      "faa_individual_aircraft_rows": 9985,
       "faa_part145_station_rows": 5080
     },
     "Norway/BRREG": {
-      "brreg_companies": 39257,
+      "brreg_companies": 38399,
       "brreg_people_roles": 2607,
       "brreg_role_companies_queried": 500,
       "brreg_api_failures": 0
     }
   },
   "privacy_and_realism_controls": [
-    "FAA private individual registrants are not exported.",
+    "FAA individual registrants are exported only as a narrow review-only candidate cohort when the live registrant_type value is an unambiguous Individual code/label AND aircraft category/engine criteria qualify; no owner street address, ZIP, personal contact fields or home coordinates are exported.",
     "FAA output includes only legal-entity-name matches and aircraft metadata; registrant status is not beneficial ownership.",
     "FAA street addresses, home-location points, and personal phone numbers are not exported.",
     "BRREG company rows include registered business contacts and business premises only.",
