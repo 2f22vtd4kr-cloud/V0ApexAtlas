@@ -40,6 +40,8 @@ jobs:
 
       - name: Extract FAA and Norwegian registry tables
         run: python -u tools/public_registry_extractor/extract.py
+      - name: Extract Czech ARES and French BODACC tables
+        run: python -u tools/public_registry_extractor/extract_europe.py
 
       - name: Commit generated CSV tables to the research branch
         if: always()
@@ -48,6 +50,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add exports/public-registry/
+            git add exports/european-registry/
             if ! git diff --cached --quiet; then
               git commit -m "data(registry): publish filtered source extracts"
               git push origin HEAD:${{ github.ref_name }}
@@ -59,6 +62,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: public-registry-extract-${{ github.run_number }}
-          path: exports/public-registry/
+          path: |
+            exports/public-registry/
+            exports/european-registry/
           if-no-files-found: warn
           retention-days: 14
