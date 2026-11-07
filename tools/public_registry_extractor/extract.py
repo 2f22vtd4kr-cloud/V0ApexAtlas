@@ -98,7 +98,7 @@ def get_json(s: requests.Session, url: str, params: dict[str, Any] | None = None
     raise RuntimeError(f"Request failed after retries: {url}")
 
 
-def export_faa() -> dict[str, int]:
+def export_faa() -> dict[str, Any]:
     con = duckdb.connect(":memory:")
     try:
         con.execute("INSTALL httpfs")
@@ -132,12 +132,25 @@ def export_faa() -> dict[str, int]:
             "aircraft_model_code": "r.aircraft_model_code",
             "engine_model_code": col("r", "engine_model_code", reg_cols),
         }
+        def first_column(alias: str, candidates: list[str], available: set[str]) -> str:
+            found = next((name for name in candidates if name in available), None)
+            return f"{alias}.{found}" if found else "NULL"
+
+        # FAA MASTER carries aircraft/engine classification and registrant type.
+        # Keep these from the registration row, not the model-reference join.
+        registration_fields = {
+            "type_aircraft": first_column("r", ["type_aircraft", "aircraft_type", "type_aircraft_code"], reg_cols),
+            "type_engine": first_column("r", ["type_engine", "engine_type", "type_engine_code"], reg_cols),
+            "type_registrant": first_column("r", ["type_registrant", "registrant_type", "type_reg", "type_of_registrant"], reg_cols),
+            "num_engines": first_column("r", ["num_engines", "number_of_engines"], reg_cols),
+        }
         model_fields = {
             "manufacturer": col("m", "manufacturer", model_cols),
             "model": col("m", "model", model_cols),
-            "type_aircraft": col("m", "type_aircraft", model_cols),
-            "type_engine": col("m", "type_engine", model_cols),
-            "num_engines": col("m", "num_engines", model_cols),
+            "type_aircraft": registration_fields["type_aircraft"] if registration_fields["type_aircraft"] != "NULL" else col("m", "type_aircraft", model_cols),
+            "type_engine": registration_fields["type_engine"] if registration_fields["type_engine"] != "NULL" else col("m", "type_engine", model_cols),
+            "type_registrant": registration_fields["type_registrant"],
+            "num_engines": registration_fields["num_engines"],
         }
         projection = ",\n".join(
             [f"{expr} AS {name}" for name, expr in selected_reg.items()] +
@@ -242,6 +255,11 @@ def export_faa() -> dict[str, int]:
             station_rows.append(row)
 
         counts = {
+            "schema_probe": {
+                "registration_columns": sorted(reg_cols),
+                "model_columns": sorted(model_cols),
+                "classification_columns_found": registration_fields,
+            },
             "faa_corporate_registrants": write_csv(
                 OUT / "faa_corporate_registrants.csv", companies
             ),
