@@ -1,7 +1,68 @@
 {
-  "run_at_utc": "2026-11-07T17:10:42.881679+00:00",
+  "run_at_utc": "2026-11-07T17:28:34.853576+00:00",
   "sources": {
     "FAA/OpenAirDocs": {
+      "schema_probe": {
+        "registration_columns": [
+          "aircraft_model_code",
+          "aircraft_type",
+          "airworthiness_class",
+          "airworthiness_date",
+          "certificate_issue_date",
+          "certification_code",
+          "engine_model_code",
+          "engine_type",
+          "expiration_date",
+          "fractional_ownership",
+          "kit_manufacturer",
+          "kit_model",
+          "last_action_date",
+          "mode_s_code_hex",
+          "mode_s_code_octal",
+          "n_number",
+          "other_registrant_names",
+          "registrant_city",
+          "registrant_country",
+          "registrant_county_code",
+          "registrant_name",
+          "registrant_region",
+          "registrant_state",
+          "registrant_type",
+          "registrant_zip_code",
+          "registry_unique_id",
+          "serial_number",
+          "status",
+          "status_code",
+          "year_manufactured"
+        ],
+        "model_columns": [
+          "aircraft_type",
+          "builder_certification",
+          "category",
+          "code",
+          "cruise_speed_mph",
+          "engine_count",
+          "engine_type",
+          "maker_tokens",
+          "manufacturer",
+          "match_key",
+          "match_method",
+          "model",
+          "model_key",
+          "seat_count",
+          "tc_data_holder",
+          "tc_data_sheet",
+          "tcds_model",
+          "tcds_number",
+          "weight_class"
+        ],
+        "classification_columns_found": {
+          "type_aircraft": "r.aircraft_type",
+          "type_engine": "r.engine_type",
+          "type_registrant": "r.registrant_type",
+          "num_engines": "NULL"
+        }
+      },
       "faa_corporate_registrants": 79831,
       "faa_corporate_aircraft": 147308,
       "faa_part145_repair_stations": 5080,
@@ -10,7 +71,7 @@
       "faa_part145_station_rows": 5080
     },
     "Norway/BRREG": {
-      "brreg_companies": 38221,
+      "brreg_companies": 38621,
       "brreg_people_roles": 2607,
       "brreg_role_companies_queried": 500,
       "brreg_api_failures": 0
