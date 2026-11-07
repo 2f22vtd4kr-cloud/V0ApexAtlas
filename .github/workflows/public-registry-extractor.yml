@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - research/registry-extractor-2026-11-07
+      - research/european-registry-extract-2026-11-07
     paths:
       - tools/public_registry_extractor/**
       - .github/workflows/public-registry-extractor.yml
