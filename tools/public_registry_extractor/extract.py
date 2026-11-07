@@ -152,7 +152,7 @@ def export_faa() -> dict[str, int]:
               ON m.code = r.aircraft_model_code
             WHERE r.registrant_name IS NOT NULL
               AND regexp_matches(upper(r.registrant_name),
-                  '(LLC|L.L.C|LLP|INC|CORP|LTD|LIMITED|PLC|GMBH|SAS|SRL|BV|NV|AG|A/S|APS|OY|AB|TRUST|TRUSTEE|BANK|HOLDING|PARTNERSHIP|CAPITAL|AVIATION|AIRCRAFT|CHARTER|LEASING|MANAGEMENT|COMPANY|CO[.])')
+                  '(^|[^A-Z0-9])(LLC|L[.]L[.]C[.]?|LLP|L[.]L[.]P[.]?|INC[.]?|CORP(ORATION)?|LTD[.]?|LIMITED|PLC|GMBH|SAS|SARL|S[.]R[.]L[.]?|B[.]V[.]?|N[.]V[.]?|A[.]G[.]?|A/S|APS|OY|AB|AS|TRUST(EE)?|BANK|HOLDINGS?|PARTNERSHIP|L[.]P[.]?)([^A-Z0-9]|$)')
         """
         aircraft = con.execute(query).fetchdf()
         if aircraft.empty:
