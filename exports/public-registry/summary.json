@@ -1,5 +1,5 @@
 {
-  "run_at_utc": "2026-11-07T16:36:38.504096+00:00",
+  "run_at_utc": "2026-11-07T17:10:42.881679+00:00",
   "sources": {
     "FAA/OpenAirDocs": {
       "faa_corporate_registrants": 79831,
@@ -10,7 +10,7 @@
       "faa_part145_station_rows": 5080
     },
     "Norway/BRREG": {
-      "brreg_companies": 38213,
+      "brreg_companies": 38221,
       "brreg_people_roles": 2607,
       "brreg_role_companies_queried": 500,
       "brreg_api_failures": 0
@@ -33,6 +33,7 @@
     "faa_corporate_registrants.csv",
     "faa_part145_repair_stations.csv",
     "norway_business_people_roles.csv",
-    "norway_real_estate_and_professional_companies.csv"
+    "norway_real_estate_and_professional_companies.csv",
+    "summary.json"
   ]
 }
