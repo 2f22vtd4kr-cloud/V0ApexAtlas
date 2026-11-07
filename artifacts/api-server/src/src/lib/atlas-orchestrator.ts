@@ -1818,7 +1818,7 @@ export async function runAtlasPipeline(atlasJobId: string, opts: AtlasOptions): 
         try {
           const seedPhaseJJobId = await createJob("phase-j-pass");
           await setActiveJob("phase-j-pass", seedPhaseJJobId);
-          await runPhaseJBatch(seedPhaseJJobId, Math.min(seedResearchLimit, 25), atlasJobId);
+          await runPhaseJBatch(seedPhaseJJobId, Math.min(seedResearchLimit, 25), atlasJobId, seedCandidates.map((entity) => entity.id));
           await setActiveJob("phase-j-pass", "");
         } catch (err: any) {
           logger.warn({ err: err?.message }, "[Atlas] Seed queue Phase J pass failed (non-fatal)");
