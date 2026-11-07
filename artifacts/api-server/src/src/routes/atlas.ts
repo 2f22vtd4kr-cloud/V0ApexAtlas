@@ -31,6 +31,7 @@ router.post("/ingest/atlas-run", async (req: Request, res: Response): Promise<vo
 
   const discoveryFirst = Boolean(body.discoveryFirst);
   const opts: AtlasOptions = {
+    registrySeedTargetCount: Math.max(0, Math.min(50, Number(body.registrySeedTargetCount ?? 5))),
     targetCount:        Number(body.targetCount)       || (discoveryFirst ? 500 : 15_000),
     faaMaxRecords:      Number(body.faaMaxRecords)     || 60_000,
     includeLandRegistry: Boolean(body.includeLandRegistry),
