@@ -30,6 +30,8 @@ jobs:
         run: corepack enable && corepack prepare pnpm@10.12.1 --activate
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Build shared library declarations
+        run: pnpm run typecheck:libs
       - name: Typecheck database and API
         run: |
           pnpm --filter @workspace/db exec tsc --noEmit
