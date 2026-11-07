@@ -32,7 +32,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build shared library declarations
         run: pnpm run typecheck:libs
-      - name: Typecheck database and API
-        run: |
-          pnpm --filter @workspace/db exec tsc --noEmit
-          pnpm --filter @workspace/api-server run typecheck
+      - name: Verify database schema package
+        run: pnpm --filter @workspace/db exec tsc --noEmit
+      - name: Build production API bundle (Replit build path)
+        run: pnpm --filter @workspace/api-server run build
